@@ -1,0 +1,62 @@
+[
+  {
+    "name": "AI Addendum",
+    "description": "Addendum to an agreement covering the use of AI services, including model training, restrictions and IP/privacy terms.",
+    "filename": "AI-Addendum.md"
+  },
+  {
+    "name": "Business Associate Agreement",
+    "description": "HIPAA business associate agreement governing a provider's handling of protected health information (PHI).",
+    "filename": "BAA.md"
+  },
+  {
+    "name": "Cloud Service Agreement",
+    "description": "Standard terms for a provider's subscription cloud service (SaaS), including access, support, fees and liability.",
+    "filename": "CSA.md"
+  },
+  {
+    "name": "Data Processing Agreement",
+    "description": "Terms for processing personal data, covering processor/subprocessor roles and data protection obligations (e.g. GDPR).",
+    "filename": "DPA.md"
+  },
+  {
+    "name": "Design Partner Agreement",
+    "description": "Agreement for early-stage design partners who get early product access in exchange for feedback.",
+    "filename": "design-partner-agreement.md"
+  },
+  {
+    "name": "Mutual NDA Cover Page",
+    "description": "Cover page for the Mutual Non-Disclosure Agreement, capturing purpose, term and party details.",
+    "filename": "Mutual-NDA-coverpage.md"
+  },
+  {
+    "name": "Mutual NDA Standard Terms",
+    "description": "Standard terms of the Mutual Non-Disclosure Agreement for two parties sharing confidential information.",
+    "filename": "Mutual-NDA.md"
+  },
+  {
+    "name": "Professional Services Agreement",
+    "description": "Agreement for professional services delivered under statements of work, with change orders and deliverable acceptance.",
+    "filename": "psa.md"
+  },
+  {
+    "name": "Partnership Agreement",
+    "description": "Agreement between two parties setting out cooperation, obligations, payment and taxes for a business partnership.",
+    "filename": "Partnership-Agreement.md"
+  },
+  {
+    "name": "Pilot Agreement",
+    "description": "Agreement for a time-limited trial (pilot) of a product before a full commercial commitment.",
+    "filename": "Pilot-Agreement.md"
+  },
+  {
+    "name": "Service Level Agreement",
+    "description": "Service levels for uptime and support response times, with remedies for missed targets.",
+    "filename": "sla.md"
+  },
+  {
+    "name": "Software License Agreement",
+    "description": "Standard terms for licensing software to a customer for a subscription period.",
+    "filename": "Software-License-Agreement.md"
+  }
+]
