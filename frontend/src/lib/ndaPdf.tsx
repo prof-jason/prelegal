@@ -49,8 +49,10 @@ const Attribution = () => (
 
 function NdaPdf({ form }: { form: NdaForm }) {
   const field = (title: string, hint: string | null, value: string) => (
-    <View wrap={false}>
-      <Text style={s.h3}>{title}</Text>
+    <View>
+      <Text style={s.h3} minPresenceAhead={40}>
+        {title}
+      </Text>
       {hint && <Text style={s.hint}>{hint}</Text>}
       <Text style={s.p}>{value || "—"}</Text>
     </View>

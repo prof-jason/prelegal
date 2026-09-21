@@ -50,10 +50,13 @@ export const formatDate = (iso: string | null) => {
   return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 };
 
-/** Whole number of years, at least 1; anything unparseable falls back to 1. */
+export const MAX_YEARS = 99;
+
+/** Whole number of years in 1..MAX_YEARS; anything unparseable falls back to 1, huge values are capped. */
 export const normalizeYears = (n: string): number => {
   const v = Math.floor(Number(n));
-  return Number.isFinite(v) && v >= 1 ? v : 1;
+  if (!Number.isFinite(v) || v < 1) return 1;
+  return Math.min(v, MAX_YEARS);
 };
 
 export const years = (n: string) => {
@@ -169,20 +172,34 @@ export const standardTerms: Clause[] = [
 export const refValue = (f: NdaForm, ref: Extract<Segment, object>["ref"]): string => {
   switch (ref) {
     case "purpose":
-      return f.purpose.trim().replace(/\.$/, "") || "Purpose";
+      // The Purpose is free text (a sentence on the cover page), so the clauses use the defined term
+      // "Purpose" rather than splicing the sentence into the middle of theirs.
+      return "Purpose";
     case "effectiveDate":
       return formatDate(f.effectiveDate) || "Effective Date";
     case "term":
-      return f.termType === "expires"
-        ? `MNDA Term (${years(f.termYears)} from the Effective Date)`
-        : "MNDA Term (continuing until terminated in accordance with this MNDA)";
+      // "Continues until terminated" is explained on the cover page; a parenthetical here would
+      // contradict the clause's "expires at the end of the MNDA Term".
+      return f.termType === "expires" ? `MNDA Term (${years(f.termYears)} from the Effective Date)` : "MNDA Term";
     case "confidentiality":
       return f.confidentialityType === "years"
-        ? `Term of Confidentiality (${years(f.confidentialityYears)} from the Effective Date)`
+        ? `Term of Confidentiality (${years(f.confidentialityYears)} from the Effective Date, but in the case of trade secrets until Confidential Information is no longer considered a trade secret under applicable laws)`
         : "Term of Confidentiality (in perpetuity)";
     case "governingLaw":
       return f.governingLaw.trim() || "[Governing Law]";
     case "jurisdiction":
       return f.jurisdiction.trim() || "[Jurisdiction]";
   }
+};
+
+/**
+ * Characters the PDF's built-in Times font (WinAnsi) can draw. Anything else in user text shows in the
+ * browser preview but can come out blank or garbled in the PDF.
+ */
+const PDF_SAFE = /^[\u0009\u000A\u000D\u0020-\u007E\u00A0-\u00FF\u0152\u0153\u0160\u0161\u0178\u017D\u017E\u0192\u02C6\u02DC\u2013\u2014\u2018-\u201A\u201C-\u201E\u2020-\u2022\u2026\u2030\u2039\u203A\u20AC\u2122]$/;
+
+/** Distinct characters in the user's text that the PDF font cannot render. */
+export const unsupportedPdfChars = (f: NdaForm): string[] => {
+  const text = [f.purpose, f.governingLaw, f.jurisdiction, f.modifications, ...[f.party1, f.party2].flatMap((p) => Object.values(p))].join("");
+  return [...new Set([...text].filter((c) => !PDF_SAFE.test(c)))];
 };

@@ -18,19 +18,48 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("Home page", () => {
-  it("renders the form beside the live document", () => {
+  it("renders the form and the live document (named landmarks)", () => {
     render(<Home />);
     expect(screen.getByRole("heading", { level: 1, name: "Mutual NDA Creator" })).toBeInTheDocument();
     expect(screen.getByRole("form", { name: "Mutual NDA details" })).toBeInTheDocument();
     expect(doc()).toBeInTheDocument();
   });
 
-  it("defaults the effective date to the visitor's local today", () => {
+  it("defaults the effective date to the visitor's local today (literal, fake clock, late evening)", () => {
+    // 20:30 in Los Angeles on 15 June is already 16 June in UTC: a UTC-based default would be wrong.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 5, 15, 20, 30));
+    try {
+      render(<Home />);
+      expect(screen.getByLabelText("Effective date")).toHaveValue("2026-06-15");
+      expect(doc()).toHaveTextContent("June 15, 2026");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows a not-legal-advice notice", () => {
     render(<Home />);
-    expect(screen.getByLabelText("Effective date")).toHaveValue(today());
-    expect(doc()).toHaveTextContent(
-      new Date(`${today()}T00:00:00`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
-    );
+    expect(screen.getByText(/does not provide legal\s+advice/)).toBeInTheDocument();
+  });
+
+  it("warns about empty governing law / jurisdiction, and clears the warning once filled", async () => {
+    const user = userEvent.setup();
+    render(<Home />);
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("governing law and jurisdiction are still empty");
+    await user.type(screen.getByLabelText(/Governing law/), "Delaware");
+    expect(screen.getByRole("status")).toHaveTextContent("The jurisdiction is still empty");
+    await user.type(screen.getByLabelText(/Jurisdiction/), "Dover, DE");
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("warns about characters the PDF font cannot draw", async () => {
+    const user = userEvent.setup();
+    render(<Home />);
+    await user.type(screen.getAllByLabelText("Company")[0], "株式会社");
+    expect(screen.getByRole("status")).toHaveTextContent("may not appear correctly in the PDF");
+    expect(screen.getByRole("status")).toHaveTextContent("株");
   });
 
   it("updates the document live as fields change", async () => {
@@ -72,9 +101,10 @@ describe("Home page", () => {
   describe("Download PDF", () => {
     it("builds the PDF from the current form and saves it as Mutual-NDA.pdf", async () => {
       const user = userEvent.setup();
+      // Capture rather than assert inside the mock: a throw there would be swallowed by download()'s try/catch.
+      const clicked: { download: string; href: string; attached: boolean }[] = [];
       const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
-        expect(this.download).toBe("Mutual-NDA.pdf");
-        expect(this.href).toBe("blob:mock");
+        clicked.push({ download: this.download, href: this.href, attached: document.body.contains(this) });
       });
       render(<Home />);
       await user.type(screen.getByLabelText(/Governing law/), "Texas");
@@ -85,7 +115,10 @@ describe("Home page", () => {
       const passed = buildNdaPdf.mock.calls[0][0];
       expect(passed.governingLaw).toBe("Texas");
       expect(passed.effectiveDate).toBe(today()); // resolved default, never null
-      expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock");
+      expect(clicked).toEqual([{ download: "Mutual-NDA.pdf", href: "blob:mock", attached: true }]);
+      // revoked later (not synchronously), and the helper anchor is cleaned up
+      await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock"), { timeout: 3000 });
+      expect(document.querySelector("a[download]")).toBeNull();
     });
 
     it("shows a busy state and disables the button while generating", async () => {

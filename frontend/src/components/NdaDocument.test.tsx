@@ -71,6 +71,33 @@ describe("NdaDocument – cover page", () => {
     expect(doc).not.toHaveTextContent("Expires 2 years");
   });
 
+  it("uses a sane heading hierarchy that leaves the page <h1> to the app shell", () => {
+    renderDoc(filled());
+    expect(screen.queryAllByRole("heading", { level: 1 })).toHaveLength(0);
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
+      "Mutual Non-Disclosure Agreement",
+      "Standard Terms",
+    ]);
+    expect(screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual([
+      "Purpose",
+      "Effective Date",
+      "MNDA Term",
+      "Term of Confidentiality",
+      "Governing Law & Jurisdiction",
+      "MNDA Modifications",
+    ]);
+  });
+
+  it("is a named article landmark", () => {
+    renderDoc(filled());
+    expect(screen.getByRole("article", { name: "Mutual Non-Disclosure Agreement" })).toBeInTheDocument();
+  });
+
+  it("keeps multi-line text as typed (line breaks are preserved by CSS, so the raw newline must reach the DOM)", () => {
+    renderDoc({ ...filled(), modifications: "Line one\nLine two" });
+    expect(screen.getByText(/Line one/).textContent).toBe("Line one\nLine two");
+  });
+
   it("renders user text as text, never as HTML", () => {
     const { container } = renderDoc({ ...filled(), modifications: '<img src=x onerror="alert(1)"><b>hi</b>' });
     expect(container.querySelector("img")).toBeNull();
@@ -96,10 +123,12 @@ describe("NdaDocument – standard terms", () => {
   it("threads the form values into the clauses", () => {
     renderDoc(filled());
     const items = screen.getAllByRole("listitem");
-    expect(items[0]).toHaveTextContent("in connection with the Exploring a joint venture which");
-    expect(items[1]).toHaveTextContent("solely for the Exploring a joint venture;");
+    // Free-text purpose stays on the cover page; clauses use the defined term so they read grammatically.
+    expect(items[0]).toHaveTextContent("in connection with the Purpose which");
+    expect(items[1]).toHaveTextContent("solely for the Purpose;");
+    expect(items[1]).toHaveTextContent("reasonable need to know for the Purpose, provided");
     expect(items[4]).toHaveTextContent("commences on the March 5, 2026 and expires at the end of the MNDA Term (2 years from the Effective Date)");
-    expect(items[4]).toHaveTextContent("survive for the Term of Confidentiality (3 years from the Effective Date)");
+    expect(items[4]).toHaveTextContent("survive for the Term of Confidentiality (3 years from the Effective Date, but in the case of trade secrets");
     expect(items[8]).toHaveTextContent("laws of the State of Delaware, without regard to the conflict of laws provisions of such Delaware");
     expect(items[8]).toHaveTextContent("courts located in New Castle, DE. Each party irrevocably submits to the exclusive jurisdiction of such New Castle, DE");
   });

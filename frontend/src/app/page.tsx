@@ -3,7 +3,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import NdaDocument from "@/components/NdaDocument";
 import NdaFormPanel from "@/components/NdaFormPanel";
-import { defaultForm, today } from "@/lib/nda";
+import { defaultForm, today, unsupportedPdfChars } from "@/lib/nda";
 import styles from "./page.module.css";
 
 const subscribeNever = () => () => {};
@@ -22,6 +22,12 @@ export default function Home() {
     [form, clientToday],
   );
 
+  const missing = [
+    !resolved.governingLaw.trim() && "governing law",
+    !resolved.jurisdiction.trim() && "jurisdiction",
+  ].filter(Boolean);
+  const badChars = unsupportedPdfChars(resolved);
+
   const download = async () => {
     setBusy(true);
     setError(null);
@@ -31,8 +37,11 @@ export default function Home() {
       const a = document.createElement("a");
       a.href = url;
       a.download = "Mutual-NDA.pdf";
+      document.body.appendChild(a); // some browsers ignore clicks on detached anchors
       a.click();
-      URL.revokeObjectURL(url);
+      a.remove();
+      // Revoking immediately can cancel the download in Safari/Firefox.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) {
       console.error(e);
       setError("Sorry, the PDF could not be generated. Please try again.");
@@ -49,21 +58,40 @@ export default function Home() {
           <p>Fill in the details and watch your agreement update live.</p>
         </div>
         <div className={styles.actions}>
-          <button onClick={download} disabled={busy}>
+          <button onClick={download} disabled={busy} aria-busy={busy}>
             {busy ? "Generating…" : "Download PDF"}
           </button>
         </div>
       </header>
+      <p className={styles.disclaimer}>
+        This tool fills in a standard template agreement (Common Paper Mutual NDA v1.0). It does not provide legal
+        advice — have a qualified attorney review any agreement before you sign it.
+      </p>
+      {(missing.length > 0 || badChars.length > 0) && (
+        <div role="status" className={styles.notice}>
+          {missing.length > 0 && (
+            <p>
+              The {missing.join(" and ")} {missing.length > 1 ? "are" : "is"} still empty, so the agreement will
+              contain a [placeholder] there.
+            </p>
+          )}
+          {badChars.length > 0 && (
+            <p>
+              These characters may not appear correctly in the PDF: <strong>{badChars.join(" ")}</strong>
+            </p>
+          )}
+        </div>
+      )}
       {error && (
         <p role="alert" className={styles.error}>
           {error}
         </p>
       )}
       <div className={styles.layout}>
-        <section className={styles.formCol}>
+        <section className={styles.formCol} aria-label="Agreement details">
           <NdaFormPanel form={resolved} onChange={setForm} />
         </section>
-        <section className={styles.previewCol}>
+        <section className={styles.previewCol} aria-label="Agreement preview">
           <NdaDocument form={resolved} />
         </section>
       </div>

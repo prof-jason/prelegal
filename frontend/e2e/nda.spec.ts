@@ -42,19 +42,15 @@ test.describe("page load", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Mutual NDA Creator" })).toBeVisible();
     await expect(page.getByRole("form", { name: "Mutual NDA details" })).toBeVisible();
     const doc = page.getByRole("article");
-    await expect(doc.getByRole("heading", { level: 1, name: "Mutual Non-Disclosure Agreement" })).toBeVisible();
+    await expect(doc.getByRole("heading", { level: 2, name: "Mutual Non-Disclosure Agreement" })).toBeVisible();
     await expect(doc).toContainText("Expires 1 year from Effective Date.");
     await expect(doc).toContainText("Evaluating whether to enter into a business relationship");
     await expect(doc.getByRole("listitem")).toHaveCount(11);
   });
 
-  test("defaults the effective date to the browser's local today", async ({ page }) => {
-    const expected = await page.evaluate(() => {
-      const d = new Date();
-      const p = (n: number) => String(n).padStart(2, "0");
-      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-    });
-    await expect(page.getByLabel("Effective date")).toHaveValue(expected);
+  test("has exactly one <h1> and a not-legal-advice notice", async ({ page }) => {
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(page.getByText(/does not provide legal advice/)).toBeVisible();
   });
 
   test("loads with no console errors or hydration warnings", async ({ page }) => {
@@ -66,6 +62,19 @@ test.describe("page load", () => {
     // let hydration + the client-only date settle
     await expect(page.getByLabel("Effective date")).not.toHaveValue("");
     expect(problems).toEqual([]);
+  });
+});
+
+test.describe("default effective date uses the visitor's local day, not UTC", () => {
+  // Pacific/Kiritimati is UTC+14. At 2026-06-15T12:00Z it is already 16 June there, so a UTC-based
+  // default ("2026-06-15") would be wrong and this test would fail.
+  test.use({ timezoneId: "Pacific/Kiritimati" });
+
+  test("shows 2026-06-16 when it is 16 June locally but 15 June in UTC", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-06-15T12:00:00Z"));
+    await page.goto("/");
+    await expect(page.getByLabel("Effective date")).toHaveValue("2026-06-16");
+    await expect(page.getByRole("article")).toContainText("June 16, 2026");
   });
 });
 
@@ -125,11 +134,31 @@ test.describe("live preview", () => {
     expect(await page.locator("article img").count()).toBe(0);
   });
 
-  test("pressing Enter in a field does not reload or lose data", async ({ page }) => {
+  test("pressing Enter in a field does not submit the form or reload the page", async ({ page }) => {
+    await page.evaluate(() => ((window as unknown as { __sentinel: number }).__sentinel = 1));
     await page.getByLabel(/Governing law/).fill("Texas");
     await page.getByLabel(/Governing law/).press("Enter");
+    // A native GET submit would add "?" to the URL and reset the JS context (dropping the sentinel).
+    await expect(page).toHaveURL(/\/$/);
+    expect(await page.evaluate(() => (window as unknown as { __sentinel?: number }).__sentinel)).toBe(1);
     await expect(page.getByLabel(/Governing law/)).toHaveValue("Texas");
-    await expect(page.getByRole("article")).toContainText("Governing Law: Texas");
+  });
+
+  test("line breaks typed into a textarea are preserved in the preview", async ({ page }) => {
+    await page.getByLabel(/MNDA modifications/).fill("First change\nSecond change");
+    const p = page.getByRole("article").getByText("First change");
+    await expect(p).toHaveCSS("white-space", "pre-wrap");
+    expect(await p.evaluate((el) => (el as HTMLElement).innerText)).toContain("First change\nSecond change");
+  });
+
+  test("shows a warning while governing law / jurisdiction are empty, and for PDF-unsafe characters", async ({ page }) => {
+    const status = page.getByRole("status");
+    await expect(status).toContainText("governing law and jurisdiction are still empty");
+    await page.getByLabel(/Governing law/).fill("Delaware");
+    await page.getByLabel(/Jurisdiction/).fill("Dover, DE");
+    await expect(status).toHaveCount(0);
+    await page.getByRole("group", { name: "Party 1" }).getByLabel("Company").fill("株式会社");
+    await expect(status).toContainText("may not appear correctly in the PDF");
   });
 
   test("clearing the effective date leaves it blank (does not snap back)", async ({ page }) => {
@@ -137,7 +166,7 @@ test.describe("live preview", () => {
     await expect(date).not.toHaveValue("");
     await date.fill("");
     await expect(date).toHaveValue("");
-    await expect(page.getByRole("article")).toContainText("Effective Date—");
+    await expect(page.getByRole("article").getByRole("heading", { name: "Effective Date" }).locator("+ p")).toHaveText("—");
   });
 });
 
@@ -241,6 +270,22 @@ test.describe("layout", () => {
 });
 
 test.describe("accessibility basics", () => {
+  test("arrow keys move between the radios of a group (they share a name)", async ({ page }) => {
+    const expires = page.getByRole("radio", { name: /Expires after/ });
+    const continues = page.getByRole("radio", { name: /Continues until terminated/ });
+    await expires.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(continues).toBeChecked();
+    await expect(page.getByRole("article")).toContainText("Continues until terminated in accordance");
+    await page.keyboard.press("ArrowUp");
+    await expect(expires).toBeChecked();
+  });
+
+  test("radio sets are exposed as named groups", async ({ page }) => {
+    await expect(page.getByRole("group", { name: "MNDA term" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Term of confidentiality" })).toBeVisible();
+  });
+
   test("every form control has an accessible name", async ({ page }) => {
     const controls = page.locator("form input, form textarea");
     const count = await controls.count();
@@ -254,10 +299,22 @@ test.describe("accessibility basics", () => {
     }
   });
 
-  test("keyboard: can tab through the form to the download button", async ({ page }) => {
-    await page.getByLabel(/^Purpose/).focus();
-    await page.keyboard.press("Tab");
-    await expect(page.getByLabel("Effective date")).toBeFocused();
+  test("keyboard: Tab follows reading order through text fields; Enter on the button downloads", async ({ page }) => {
+    // (The native date input has month/day/year sub-fields, so start after it.)
+    await page.getByLabel(/Governing law/).focus();
+    const order: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.press("Tab");
+      order.push(
+        await page.evaluate(() => {
+          const el = document.activeElement as HTMLInputElement;
+          return el.labels?.[0]?.textContent?.trim() || el.getAttribute("aria-label") || el.tagName;
+        }),
+      );
+    }
+    expect(order[0]).toMatch(/^Jurisdiction/);
+    expect(order[1]).toMatch(/^MNDA modifications/);
+    expect(order[2]).toBe("Print name");
     await page.getByRole("button", { name: "Download PDF" }).focus();
     const [download] = await Promise.all([page.waitForEvent("download"), page.keyboard.press("Enter")]);
     expect(download.suggestedFilename()).toBe("Mutual-NDA.pdf");

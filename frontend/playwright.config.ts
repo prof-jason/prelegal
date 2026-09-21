@@ -9,14 +9,16 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: `http://localhost:${port}`,
-    // Use the locally installed Chrome so no browser download is needed.
-    channel: "chrome",
+    // Locally: use the installed Chrome (no browser download). In CI: Playwright's own Chromium
+    // (`npx playwright install chromium`).
+    channel: process.env.CI ? undefined : "chrome",
     trace: "retain-on-failure",
   },
   webServer: {
     command: `npm run build && npx next start -p ${port}`,
     url: `http://localhost:${port}`,
-    reuseExistingServer: !process.env.CI,
+    // Always start a fresh build so the suite can never run against a stale server.
+    reuseExistingServer: false,
     timeout: 180_000,
   },
 });

@@ -29,6 +29,7 @@ describe("NdaFormPanel", () => {
     );
     expect(screen.getByLabelText("Effective date")).toHaveValue("2026-03-05");
     expect(screen.getByLabelText(/Governing law/)).toHaveValue("");
+    expect(screen.getByLabelText("Governing law (state name only)")).toBeInTheDocument();
     expect(screen.getByLabelText(/Jurisdiction/)).toHaveValue("");
     expect(screen.getByLabelText(/MNDA modifications/)).toHaveValue("");
     expect(screen.getAllByLabelText("Print name")).toHaveLength(2);
@@ -42,6 +43,25 @@ describe("NdaFormPanel", () => {
     render(<Harness />);
     const hint = screen.getByLabelText(/Jurisdiction/).getAttribute("placeholder")!;
     expect(hint).not.toMatch(/courts/i);
+  });
+
+  it("exposes each radio set as a named group with a shared radio name", () => {
+    render(<Harness />);
+    const term = screen.getByRole("group", { name: "MNDA term" });
+    const conf = screen.getByRole("group", { name: "Term of confidentiality" });
+    const radios = (g: HTMLElement) => [...g.querySelectorAll<HTMLInputElement>("input[type=radio]")];
+    expect(radios(term)).toHaveLength(2);
+    expect(new Set(radios(term).map((r) => r.name))).toEqual(new Set(["termType"]));
+    expect(radios(conf)).toHaveLength(2);
+    expect(new Set(radios(conf).map((r) => r.name))).toEqual(new Set(["confidentialityType"]));
+  });
+
+  it("limits year inputs to 1..99", () => {
+    render(<Harness />);
+    for (const input of screen.getAllByRole("spinbutton")) {
+      expect(input).toHaveAttribute("min", "1");
+      expect(input).toHaveAttribute("max", "99");
+    }
   });
 
   it("gives the year inputs accessible names", () => {

@@ -9,10 +9,13 @@
   border-radius: 6px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
-.doc h1 { font-size: 24px; text-align: center; margin: 0 0 24px; }
-.doc h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; margin: 24px 0 8px; }
-.doc h3 { font-size: 16px; margin: 20px 0 2px; }
-.doc p { margin: 6px 0; }
+.doc { overflow-wrap: anywhere; }
+.title { font-size: 24px; text-align: center; margin: 0 0 24px; }
+.kicker { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; margin: 24px 0 8px; }
+.doc h4 { font-size: 16px; margin: 20px 0 2px; }
+/* Preserve line breaks typed into textareas so the preview matches the PDF. */
+.doc p, .doc td { margin: 6px 0; white-space: pre-wrap; }
+.doc td { margin: 0; }
 .doc ol { padding-left: 22px; }
 .doc li { margin-bottom: 12px; }
 .hint { color: #666; font-size: 13px; font-style: italic; }

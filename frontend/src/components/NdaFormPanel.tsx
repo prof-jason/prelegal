@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { NdaForm, Party } from "@/lib/nda";
+import { MAX_YEARS, type NdaForm, type Party } from "@/lib/nda";
 import styles from "./NdaFormPanel.module.css";
 
 type Props = { form: NdaForm; onChange: (f: NdaForm) => void };
@@ -37,15 +37,16 @@ export default function NdaFormPanel({ form, onChange }: Props) {
           <input type="date" value={form.effectiveDate ?? ""} onChange={(e) => set("effectiveDate", e.target.value)} />
         </Field>
 
-        <div className={styles.group}>
-          <span>MNDA term</span>
+        <fieldset className={styles.group}>
+          <legend>MNDA term</legend>
           <label className={styles.radio}>
-            <input type="radio" checked={form.termType === "expires"} onChange={() => set("termType", "expires")} />
+            <input type="radio" name="termType" checked={form.termType === "expires"} onChange={() => set("termType", "expires")} />
             Expires after
             <input
               className={styles.num}
               type="number"
               min={1}
+              max={MAX_YEARS}
               aria-label="MNDA term in years"
               value={form.termYears}
               disabled={form.termType !== "expires"}
@@ -54,16 +55,17 @@ export default function NdaFormPanel({ form, onChange }: Props) {
             year(s)
           </label>
           <label className={styles.radio}>
-            <input type="radio" checked={form.termType === "continues"} onChange={() => set("termType", "continues")} />
+            <input type="radio" name="termType" checked={form.termType === "continues"} onChange={() => set("termType", "continues")} />
             Continues until terminated
           </label>
-        </div>
+        </fieldset>
 
-        <div className={styles.group}>
-          <span>Term of confidentiality</span>
+        <fieldset className={styles.group}>
+          <legend>Term of confidentiality</legend>
           <label className={styles.radio}>
             <input
               type="radio"
+              name="confidentialityType"
               checked={form.confidentialityType === "years"}
               onChange={() => set("confidentialityType", "years")}
             />
@@ -72,6 +74,7 @@ export default function NdaFormPanel({ form, onChange }: Props) {
               className={styles.num}
               type="number"
               min={1}
+              max={MAX_YEARS}
               aria-label="Term of confidentiality in years"
               value={form.confidentialityYears}
               disabled={form.confidentialityType !== "years"}
@@ -82,14 +85,15 @@ export default function NdaFormPanel({ form, onChange }: Props) {
           <label className={styles.radio}>
             <input
               type="radio"
+              name="confidentialityType"
               checked={form.confidentialityType === "perpetuity"}
               onChange={() => set("confidentialityType", "perpetuity")}
             />
             In perpetuity
           </label>
-        </div>
+        </fieldset>
 
-        <Field label="Governing law (state)">
+        <Field label="Governing law (state name only)">
           <input value={form.governingLaw} placeholder="e.g. Delaware" onChange={(e) => set("governingLaw", e.target.value)} />
         </Field>
         <Field label="Jurisdiction (city or county and state)">

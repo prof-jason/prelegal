@@ -18,7 +18,15 @@
 - **`e2e/nda.spec.ts`** – full flows in Chrome: fill every field, live preview, PDF download contents, mobile/tablet
   overflow, console cleanliness (no hydration warnings), keyboard use, control labelling.
 
-Vitest pins `TZ=America/Los_Angeles` so local-vs-UTC date bugs are caught on any machine.
+Vitest pins `TZ=America/Los_Angeles` (`vitest.global.ts`) so local-vs-UTC date bugs are caught on any machine, and a
+sentinel test fails if the pin ever stops reaching the workers. The e2e suite runs its date test in `Pacific/Kiritimati`
+(UTC+14) with a fixed clock for the same reason.
+
+**Running e2e:** locally it uses your installed Google Chrome (`channel: "chrome"`); with `CI=1` it uses Playwright's
+Chromium (`npx playwright install chromium`). It always builds and starts its own server on port 3222 and never reuses one
+that is already running, so it cannot test stale code.
+
+The fidelity test reads `../templates/Mutual-NDA.md`, so run the tests from a full checkout of the repo.
 
 ## Manual checklist
 
@@ -41,9 +49,19 @@ Run `npm run build && npx next start` and open http://localhost:3000 in Chrome. 
 | 13 | Press Enter inside a text field | Page does not reload; data kept | Pass |
 | 14 | Type `<b>x</b>` in modifications | Shown literally | Pass |
 | 15 | Inspect controls with a screen-reader/label audit | Every control named | **Fail → fixed**: the two year inputs had no accessible name |
+| 16 | Arrow keys inside a radio set | Moves between the two options | **Fail → fixed** (code review): radios had no shared `name` and no group label; now `<fieldset>`/`<legend>` + shared name |
+| 17 | Read clauses 1, 2 and 5 with default values | Grammatical | **Fail → fixed** (code review): "for the Evaluating whether to…" and "expires at the end of the MNDA Term (continuing until terminated)". Clauses now use the defined term "Purpose" and a bare "MNDA Term" for the open-ended case |
+| 18 | Type two lines into "MNDA modifications" | Preview shows two lines, as the PDF does | **Fail → fixed** (code review): preview collapsed them; now `white-space: pre-wrap` |
+| 19 | Type "1e21" / "100" years | Capped at 99 years | **Fail → fixed** (code review): produced "1e+21 years" |
+| 20 | Leave governing law/jurisdiction empty | Visible warning about placeholders | Pass (added after review) |
+| 21 | Type CJK / emoji into a field | Visible warning that the PDF may not show them | Pass (added after review) |
 
 ## Known limitations
 
-- The PDF uses the built-in Times font (WinAnsi). Characters outside it (e.g. CJK) will not render correctly; the PDF still
-  builds. Embedding a Unicode font would fix this.
+- The PDF uses the built-in Times font (WinAnsi). Characters outside it (e.g. CJK, some Polish/Vietnamese letters, emoji)
+  will not render correctly in the PDF. The page warns about them, and the PDF still builds. Embedding a Unicode font
+  would remove the limitation.
+- Clause 9 says "the laws of the State of …", so "governing law" must be a US state name (the field says so). This is the
+  Common Paper template's wording.
+- The tool shows a not-legal-advice notice but does no legal validation of the entries.
 - Only the Mutual NDA template is supported (issue #4 scope).

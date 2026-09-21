@@ -20,10 +20,10 @@ const partyRows: { label: string; get: (p: Party) => string }[] = [
 
 export default function NdaDocument({ form }: { form: NdaForm }) {
   return (
-    <article id="nda-document" className={styles.doc}>
-      <h1>Mutual Non-Disclosure Agreement</h1>
+    <article id="nda-document" className={styles.doc} aria-label="Mutual Non-Disclosure Agreement">
+      <h2 className={styles.title}>Mutual Non-Disclosure Agreement</h2>
 
-      <h2>Using this Mutual Non-Disclosure Agreement</h2>
+      <h3 className={styles.kicker}>Using this Mutual Non-Disclosure Agreement</h3>
       <p>
         This Mutual Non-Disclosure Agreement (the “MNDA”) consists of: (1) this Cover Page (“<b>Cover Page</b>”) and
         (2) the Common Paper Mutual NDA Standard Terms Version 1.0 (“<b>Standard Terms</b>”) identical to those posted
@@ -33,26 +33,26 @@ export default function NdaDocument({ form }: { form: NdaForm }) {
         the Standard Terms.
       </p>
 
-      <h3>Purpose</h3>
+      <h4>Purpose</h4>
       <p className={styles.hint}>How Confidential Information may be used</p>
       <p>{form.purpose || "—"}</p>
 
-      <h3>Effective Date</h3>
+      <h4>Effective Date</h4>
       <p>{formatDate(form.effectiveDate) || "—"}</p>
 
-      <h3>MNDA Term</h3>
+      <h4>MNDA Term</h4>
       <p className={styles.hint}>The length of this MNDA</p>
       <p>{termText(form)}</p>
 
-      <h3>Term of Confidentiality</h3>
+      <h4>Term of Confidentiality</h4>
       <p className={styles.hint}>How long Confidential Information is protected</p>
       <p>{confidentialityText(form)}</p>
 
-      <h3>Governing Law &amp; Jurisdiction</h3>
+      <h4>Governing Law &amp; Jurisdiction</h4>
       <p>Governing Law: {form.governingLaw || "—"}</p>
       <p>Jurisdiction: {form.jurisdiction || "—"}</p>
 
-      <h3>MNDA Modifications</h3>
+      <h4>MNDA Modifications</h4>
       <p>{form.modifications || "None."}</p>
 
       <p>By signing this Cover Page, each party agrees to enter into this MNDA as of the Effective Date.</p>
@@ -81,7 +81,7 @@ export default function NdaDocument({ form }: { form: NdaForm }) {
         <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.
       </p>
 
-      <h1 className={styles.pageBreak}>Standard Terms</h1>
+      <h2 className={`${styles.title} ${styles.pageBreak}`}>Standard Terms</h2>
       <ol>
         {standardTerms.map((c) => (
           <li key={c.title}>

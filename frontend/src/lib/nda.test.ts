@@ -10,6 +10,7 @@ import {
   standardTerms,
   termText,
   today,
+  unsupportedPdfChars,
   years,
   type NdaForm,
 } from "./nda";
@@ -57,6 +58,9 @@ describe("normalizeYears / years", () => {
     ["abc", 1],
     ["  7 ", 7],
     ["Infinity", 1],
+    ["99", 99],
+    ["100", 99],
+    ["1e21", 99],
     ["NaN", 1],
   ])("normalizeYears(%j) = %i", (input, expected) => {
     expect(normalizeYears(input)).toBe(expected);
@@ -100,13 +104,10 @@ describe("cover page option text", () => {
 });
 
 describe("refValue", () => {
-  it("purpose: trims and drops one trailing period", () => {
-    expect(refValue(form({ purpose: "  Evaluating a deal.  " }), "purpose")).toBe("Evaluating a deal");
-    expect(refValue(form({ purpose: "Two dots.." }), "purpose")).toBe("Two dots.");
-  });
-
-  it("purpose: falls back to the defined term when blank", () => {
-    expect(refValue(form({ purpose: "   " }), "purpose")).toBe("Purpose");
+  it("purpose: clauses use the defined term, whatever the free-text purpose says", () => {
+    // Splicing a sentence into "for the ___" produced ungrammatical clauses.
+    expect(refValue(form({ purpose: "Evaluating a deal." }), "purpose")).toBe("Purpose");
+    expect(refValue(form({ purpose: "" }), "purpose")).toBe("Purpose");
   });
 
   it("effective date", () => {
@@ -118,9 +119,10 @@ describe("refValue", () => {
     expect(refValue(form({ termType: "expires", termYears: "2" }), "term")).toBe(
       "MNDA Term (2 years from the Effective Date)",
     );
-    expect(refValue(form({ termType: "continues" }), "term")).toContain("continuing until terminated");
+    // "expires at the end of the MNDA Term" must not be followed by "(continuing until terminated)"
+    expect(refValue(form({ termType: "continues" }), "term")).toBe("MNDA Term");
     expect(refValue(form({ confidentialityType: "years", confidentialityYears: "1" }), "confidentiality")).toBe(
-      "Term of Confidentiality (1 year from the Effective Date)",
+      "Term of Confidentiality (1 year from the Effective Date, but in the case of trade secrets until Confidential Information is no longer considered a trade secret under applicable laws)",
     );
     expect(refValue(form({ confidentialityType: "perpetuity" }), "confidentiality")).toBe(
       "Term of Confidentiality (in perpetuity)",
@@ -134,6 +136,43 @@ describe("refValue", () => {
       "courts in New Castle, DE",
     );
     expect(refValue(form({ jurisdiction: "  " }), "jurisdiction")).toBe("[Jurisdiction]");
+  });
+});
+
+describe("unsupportedPdfChars", () => {
+  it("accepts Latin text, accents, curly quotes, dashes and symbols the PDF font can draw", () => {
+    const f = form({ purpose: "Café Müller — “quoted” ’s … €5 ™ © ñ", party1: { ...defaultForm().party1, company: "Zoë\nMiller" } });
+    expect(unsupportedPdfChars(f)).toEqual([]);
+  });
+
+  it("reports distinct characters it cannot draw, across every text field", () => {
+    const f = form({
+      purpose: "株式会社",
+      governingLaw: "Łódź",
+      modifications: "😀😀",
+      party2: { ...defaultForm().party2, name: "Nguyễn" },
+    });
+    const bad = unsupportedPdfChars(f);
+    expect(bad).toEqual(expect.arrayContaining(["株", "Ł", "ź", "😀", "ễ"]));
+    expect(bad.filter((c) => c === "😀")).toHaveLength(1);
+    expect(bad).not.toContain("ó"); // Latin-1, fine
+  });
+
+  it("is empty for the default form", () => {
+    expect(unsupportedPdfChars(defaultForm())).toEqual([]);
+  });
+});
+
+describe("test environment", () => {
+  it("runs in a non-UTC timezone so local-vs-UTC date bugs are detectable", () => {
+    // If this fails, the TZ pin in vitest.global.ts is not reaching the test workers.
+    expect(new Date(2026, 0, 1).getTimezoneOffset()).toBe(480);
+  });
+
+  it("today() is the local calendar day even when the UTC day differs", () => {
+    // 2026-06-15 20:00 in Los Angeles is already 2026-06-16 03:00 UTC.
+    expect(today(new Date(2026, 5, 15, 20, 0, 0))).toBe("2026-06-15");
+    expect(new Date(2026, 5, 15, 20, 0, 0).toISOString().slice(0, 10)).toBe("2026-06-16");
   });
 });
 

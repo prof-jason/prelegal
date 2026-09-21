@@ -66,15 +66,15 @@ describe("buildNdaPdf (filled form)", () => {
     }
   });
 
-  it("contains all 11 clause titles, numbered, in order", () => {
+  it("contains all 11 clauses as 'N. Title.' in order", () => {
     const text = pages.slice(1).join(" ");
     let from = 0;
     standardTerms.forEach((c, i) => {
-      const at = text.indexOf(c.title, from);
-      expect(at, `clause ${i + 1} ${c.title}`).toBeGreaterThanOrEqual(from);
-      from = at;
+      // pdf.js emits the bold title and its full stop as separate runs, hence the optional space
+      const m = new RegExp(`(?:^|\\s)${i + 1}\\.\\s*${c.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s?\\.`).exec(text.slice(from));
+      expect(m, `clause ${i + 1} ${c.title}`).not.toBeNull();
+      from += m!.index + m![0].length;
     });
-    expect(text).toMatch(/\b11\.\s*General/);
   });
 
   it("substitutes values into the clauses and leaves no unresolved placeholders", () => {
@@ -82,7 +82,10 @@ describe("buildNdaPdf (filled form)", () => {
     expect(text).toContain("laws of the State of Delaware");
     expect(text).toContain("courts located in New Castle, DE");
     expect(text).toContain("MNDA Term (2 years from the Effective Date)");
-    expect(text).toContain("Term of Confidentiality (3 years from the Effective Date)");
+    expect(text).toContain("Term of Confidentiality (3 years from the Effective Date, but in the case of trade secrets");
+    // purpose sentence lives on the cover page; clauses use the defined term
+    expect(text).toContain("in connection with the Purpose which");
+    expect(text).toContain("solely for the Purpose;");
     expect(text).not.toContain("[Governing Law]");
     expect(text).not.toContain("[Jurisdiction]");
     expect(text).not.toMatch(/undefined|\[object|NaN|\bnull\b(?! and void)/);
@@ -142,6 +145,8 @@ describe("buildNdaPdf (edge cases)", () => {
     expect(text).toContain("Continues until terminated in accordance with the terms of the MNDA.");
     expect(text).toContain("In perpetuity.");
     expect(text).toContain("Term of Confidentiality (in perpetuity)");
+    // continues: bare defined term, no contradictory parenthetical after "expires at the end of"
+    expect(text).toContain("expires at the end of the MNDA Term. Either party");
   });
 
   it("handles accents, curly quotes and ampersands in user text", async () => {
@@ -162,6 +167,20 @@ describe("buildNdaPdf (edge cases)", () => {
     const pages = await pdfPages(await buildNdaPdf({ ...filled(), modifications: long }));
     expect(pages.length).toBeGreaterThanOrEqual(3);
     expect(pages.join(" ")).toContain("word word word");
+  });
+
+  it("very long party fields (unbroken address, huge company) still build and keep the table with its lead-in", async () => {
+    const huge = { name: "N".repeat(200), title: "T ".repeat(80), company: "C".repeat(300), address: "a".repeat(400) + "@example.com", date: "2026-03-06" };
+    const ps = await pdfPages(await buildNdaPdf({ ...filled(), party1: huge, party2: huge }));
+    const sign = ps.findIndex((p) => p.includes("By signing this Cover Page"));
+    expect(sign).toBeGreaterThanOrEqual(0);
+    expect(ps[sign]).toContain("Party 1 Party 2 Signature");
+  });
+
+  it("wraps a very long Purpose / Modifications entry instead of clipping it", async () => {
+    const marker = "END-OF-MODIFICATIONS";
+    const text = (await pdfPages(await buildNdaPdf({ ...filled(), modifications: "Paragraph text. ".repeat(400) + marker }))).join(" ");
+    expect(text).toContain(marker);
   });
 
   it("does not throw on non-Latin text (Times has no such glyphs, but PDF must still build)", async () => {
