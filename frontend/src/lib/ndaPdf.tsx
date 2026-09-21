@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet, Link, pdf } from "@react-pdf/renderer";
+import { Document, Font, Page, Text, View, StyleSheet, Link, pdf } from "@react-pdf/renderer";
 import {
   type NdaForm,
   type Party,
@@ -9,22 +9,26 @@ import {
   confidentialityText,
 } from "@/lib/nda";
 
+// Legal text and URLs must not be auto-hyphenated ("commonpa-per.com").
+Font.registerHyphenationCallback((word) => [word]);
+
 const s = StyleSheet.create({
-  page: { padding: 56, fontSize: 10.5, lineHeight: 1.45, fontFamily: "Times-Roman" },
-  h1: { fontSize: 20, textAlign: "center", marginBottom: 16, fontFamily: "Times-Bold" },
+  page: { padding: "48 52", fontSize: 10.5, lineHeight: 1.4, fontFamily: "Times-Roman" },
+  h1: { fontSize: 19, textAlign: "center", marginBottom: 12, fontFamily: "Times-Bold" },
   h2: { fontSize: 9.5, textTransform: "uppercase", marginBottom: 6, fontFamily: "Times-Bold" },
-  h3: { fontSize: 12, marginTop: 12, fontFamily: "Times-Bold" },
+  h3: { fontSize: 11.5, marginTop: 9, fontFamily: "Times-Bold" },
   hint: { color: "#666", fontSize: 9, fontFamily: "Times-Italic" },
   p: { marginTop: 4 },
   bold: { fontFamily: "Times-Bold" },
   under: { textDecoration: "underline" },
-  table: { marginVertical: 14, borderTop: "1 solid #999", borderLeft: "1 solid #999" },
+  table: { marginTop: 8, borderTop: "1 solid #999", borderLeft: "1 solid #999" },
   row: { flexDirection: "row" },
-  cell: { flex: 1, minHeight: 26, padding: 5, borderRight: "1 solid #999", borderBottom: "1 solid #999" },
+  cell: { flex: 1, minHeight: 24, padding: 5, borderRight: "1 solid #999", borderBottom: "1 solid #999" },
   labelCell: { flex: 0.6, fontFamily: "Times-Bold", backgroundColor: "#f4f4f4" },
   clause: { marginBottom: 9, flexDirection: "row" },
   num: { width: 22 },
-  attribution: { marginTop: 18, fontSize: 8.5, color: "#666" },
+  signatureRow: { minHeight: 40 },
+  attribution: { marginTop: 14, fontSize: 8.5, color: "#666" },
 });
 
 const rows: { label: string; get: (p: Party) => string }[] = [
@@ -74,22 +78,25 @@ function NdaPdf({ form }: { form: NdaForm }) {
           `Governing Law: ${form.governingLaw || "—"}\nJurisdiction: ${form.jurisdiction || "—"}`,
         )}
         {field("MNDA Modifications", null, form.modifications || "None.")}
-        <Text style={[s.p, { marginTop: 12 }]}>
-          By signing this Cover Page, each party agrees to enter into this MNDA as of the Effective Date.
-        </Text>
-        <View style={s.table} wrap={false}>
-          <View style={s.row}>
-            <Text style={[s.cell, s.labelCell]} />
-            <Text style={[s.cell, s.bold, { textAlign: "center" }]}>Party 1</Text>
-            <Text style={[s.cell, s.bold, { textAlign: "center" }]}>Party 2</Text>
-          </View>
-          {rows.map((r) => (
-            <View style={s.row} key={r.label}>
-              <Text style={[s.cell, s.labelCell]}>{r.label}</Text>
-              <Text style={s.cell}>{r.get(form.party1)}</Text>
-              <Text style={s.cell}>{r.get(form.party2)}</Text>
+        {/* Keep the sentence and the signature table together on one page. */}
+        <View wrap={false} style={{ marginTop: 10 }}>
+          <Text style={s.p}>
+            By signing this Cover Page, each party agrees to enter into this MNDA as of the Effective Date.
+          </Text>
+          <View style={s.table}>
+            <View style={s.row}>
+              <Text style={[s.cell, s.labelCell]} />
+              <Text style={[s.cell, s.bold, { textAlign: "center" }]}>Party 1</Text>
+              <Text style={[s.cell, s.bold, { textAlign: "center" }]}>Party 2</Text>
             </View>
-          ))}
+            {rows.map((r) => (
+              <View style={[s.row, r.label === "Signature" ? s.signatureRow : {}]} key={r.label}>
+                <Text style={[s.cell, s.labelCell]}>{r.label}</Text>
+                <Text style={s.cell}>{r.get(form.party1)}</Text>
+                <Text style={s.cell}>{r.get(form.party2)}</Text>
+              </View>
+            ))}
+          </View>
         </View>
         <Attribution />
       </Page>
@@ -97,7 +104,7 @@ function NdaPdf({ form }: { form: NdaForm }) {
       <Page size="LETTER" style={s.page}>
         <Text style={s.h1}>Standard Terms</Text>
         {standardTerms.map((c, i) => (
-          <View style={s.clause} key={c.title}>
+          <View style={s.clause} key={c.title} wrap={false}>
             <Text style={s.num}>{i + 1}.</Text>
             <Text style={{ flex: 1 }}>
               <Text style={s.bold}>{c.title}</Text>.{" "}

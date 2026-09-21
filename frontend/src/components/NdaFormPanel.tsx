@@ -27,14 +27,14 @@ export default function NdaFormPanel({ form, onChange }: Props) {
     onChange({ ...form, [which]: { ...form[which], [k]: v } });
 
   return (
-    <form className={styles.form} onSubmit={(e) => e.preventDefault()}>
+    <form className={styles.form} aria-label="Mutual NDA details" onSubmit={(e) => e.preventDefault()}>
       <fieldset>
         <legend>Agreement terms</legend>
         <Field label="Purpose — how Confidential Information may be used">
           <textarea rows={3} value={form.purpose} onChange={(e) => set("purpose", e.target.value)} />
         </Field>
         <Field label="Effective date">
-          <input type="date" value={form.effectiveDate} onChange={(e) => set("effectiveDate", e.target.value)} />
+          <input type="date" value={form.effectiveDate ?? ""} onChange={(e) => set("effectiveDate", e.target.value)} />
         </Field>
 
         <div className={styles.group}>
@@ -46,6 +46,7 @@ export default function NdaFormPanel({ form, onChange }: Props) {
               className={styles.num}
               type="number"
               min={1}
+              aria-label="MNDA term in years"
               value={form.termYears}
               disabled={form.termType !== "expires"}
               onChange={(e) => set("termYears", e.target.value)}
@@ -71,6 +72,7 @@ export default function NdaFormPanel({ form, onChange }: Props) {
               className={styles.num}
               type="number"
               min={1}
+              aria-label="Term of confidentiality in years"
               value={form.confidentialityYears}
               disabled={form.confidentialityType !== "years"}
               onChange={(e) => set("confidentialityYears", e.target.value)}
@@ -93,7 +95,7 @@ export default function NdaFormPanel({ form, onChange }: Props) {
         <Field label="Jurisdiction (city or county and state)">
           <input
             value={form.jurisdiction}
-            placeholder="e.g. courts located in New Castle, DE"
+            placeholder="e.g. New Castle, DE"
             onChange={(e) => set("jurisdiction", e.target.value)}
           />
         </Field>

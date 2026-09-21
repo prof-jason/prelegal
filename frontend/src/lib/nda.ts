@@ -1,6 +1,7 @@
 export type NdaForm = {
   purpose: string;
-  effectiveDate: string;
+  /** null = untouched; the UI then defaults it to the visitor's local today. */
+  effectiveDate: string | null;
   termType: "expires" | "continues";
   termYears: string;
   confidentialityType: "years" | "perpetuity";
@@ -20,13 +21,17 @@ export type Party = {
   date: string;
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
+/** Today's date in the user's local timezone as YYYY-MM-DD (toISOString would use UTC and can be a day off). */
+export const today = (now: Date = new Date()) => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+};
 
 const emptyParty = (): Party => ({ name: "", title: "", company: "", address: "", date: "" });
 
 export const defaultForm = (): NdaForm => ({
   purpose: "Evaluating whether to enter into a business relationship with the other party.",
-  effectiveDate: today(),
+  effectiveDate: null,
   termType: "expires",
   termYears: "1",
   confidentialityType: "years",
@@ -38,14 +43,23 @@ export const defaultForm = (): NdaForm => ({
   party2: emptyParty(),
 });
 
-export const formatDate = (iso: string) => {
+export const formatDate = (iso: string | null) => {
   if (!iso) return "";
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 };
 
-const years = (n: string) => `${n || "1"} year${n === "1" || !n ? "" : "s"}`;
+/** Whole number of years, at least 1; anything unparseable falls back to 1. */
+export const normalizeYears = (n: string): number => {
+  const v = Math.floor(Number(n));
+  return Number.isFinite(v) && v >= 1 ? v : 1;
+};
+
+export const years = (n: string) => {
+  const v = normalizeYears(n);
+  return `${v} year${v === 1 ? "" : "s"}`;
+};
 
 export const termText = (f: NdaForm) =>
   f.termType === "expires"
@@ -159,9 +173,13 @@ export const refValue = (f: NdaForm, ref: Extract<Segment, object>["ref"]): stri
     case "effectiveDate":
       return formatDate(f.effectiveDate) || "Effective Date";
     case "term":
-      return f.termType === "expires" ? `${years(f.termYears)} MNDA Term` : "MNDA Term (until terminated)";
+      return f.termType === "expires"
+        ? `MNDA Term (${years(f.termYears)} from the Effective Date)`
+        : "MNDA Term (continuing until terminated in accordance with this MNDA)";
     case "confidentiality":
-      return f.confidentialityType === "years" ? `${years(f.confidentialityYears)} Term of Confidentiality` : "Term of Confidentiality (in perpetuity)";
+      return f.confidentialityType === "years"
+        ? `Term of Confidentiality (${years(f.confidentialityYears)} from the Effective Date)`
+        : "Term of Confidentiality (in perpetuity)";
     case "governingLaw":
       return f.governingLaw.trim() || "[Governing Law]";
     case "jurisdiction":

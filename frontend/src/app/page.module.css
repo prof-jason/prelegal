@@ -10,8 +10,5 @@
   .layout { grid-template-columns: 1fr; }
   .formCol { position: static; max-height: none; }
 }
-@media print {
-  .header, .formCol { display: none; }
-  .main { padding: 0; max-width: none; }
-  .layout { display: block; }
-}
+.error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 6px; padding: 10px 14px; margin: 0 0 16px; }
+.actions button:disabled { opacity: 0.6; cursor: progress; }
