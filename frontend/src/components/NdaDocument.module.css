@@ -1,0 +1,25 @@
+.doc {
+  background: #fff;
+  color: #111;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  line-height: 1.55;
+  padding: 48px 56px;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+.doc h1 { font-size: 24px; text-align: center; margin: 0 0 24px; }
+.doc h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; margin: 24px 0 8px; }
+.doc h3 { font-size: 16px; margin: 20px 0 2px; }
+.doc p { margin: 6px 0; }
+.doc ol { padding-left: 22px; }
+.doc li { margin-bottom: 12px; }
+.hint { color: #666; font-size: 13px; font-style: italic; }
+.sig { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+.sig th, .sig td { border: 1px solid #bbb; padding: 10px; text-align: left; vertical-align: top; height: 38px; }
+.sig thead th { text-align: center; background: #f4f4f4; }
+.sig tbody th { width: 22%; background: #fafafa; font-weight: 600; }
+.attribution { font-size: 12px; color: #666; margin-top: 24px; }
+.pageBreak { break-before: page; margin-top: 48px !important; }
+@media (max-width: 640px) { .doc { padding: 24px 18px; } }
