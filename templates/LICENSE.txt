@@ -1,0 +1,11 @@
+All files in this directory are templates originally published by Common Paper
+(https://github.com/CommonPaper) and are licensed under the Creative Commons
+Attribution 4.0 International License (CC BY 4.0).
+
+License: https://creativecommons.org/licenses/by/4.0/
+Attribution: Common Paper, https://commonpaper.com
+
+Source repositories: AI-Addendum, BAA, CSA, DPA, Design-Partner-Agreement,
+Mutual-NDA, PSA, Partnership-Agreement, Pilot-Agreement, SLA,
+Software-License-Agreement (all under https://github.com/CommonPaper).
+Any modifications made in this project are also shared under CC BY 4.0.
