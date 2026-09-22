@@ -1,0 +1,17 @@
+.git
+.github
+
+frontend/node_modules
+frontend/.next
+frontend/out
+frontend/e2e/.results
+frontend/coverage
+
+backend/.venv
+backend/data
+backend/__pycache__
+backend/.pytest_cache
+**/__pycache__
+
+.claude
+scripts

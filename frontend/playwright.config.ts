@@ -15,7 +15,9 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: `npm run build && npx next start -p ${port}`,
+    // `next start` needs the Next.js server runtime, which `output: "export"`
+    // (see next.config.ts) doesn't produce -- serve the static export instead.
+    command: `npm run build && npx serve out -l ${port} -s`,
     url: `http://localhost:${port}`,
     // Always start a fresh build so the suite can never run against a stale server.
     reuseExistingServer: false,
