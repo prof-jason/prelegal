@@ -33,6 +33,9 @@ const downloadPdf = async (page: Page) => {
 };
 
 test.beforeEach(async ({ page }) => {
+  // Skip the fake login screen (see login.spec.ts for coverage of it) so
+  // this suite can keep testing the NDA flow directly, as before.
+  await page.addInitScript(() => localStorage.setItem("prelegal.auth", "1"));
   await page.goto("/");
 });
 

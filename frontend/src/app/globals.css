@@ -1,3 +1,11 @@
+:root {
+  --color-accent-yellow: #ecad0a;
+  --color-blue-primary: #209dd7;
+  --color-purple-secondary: #753991;
+  --color-dark-navy: #032147;
+  --color-gray-text: #888888;
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 body { font-family: var(--font-geist-sans), system-ui, sans-serif; background: #f3f4f6; color: #111; }
