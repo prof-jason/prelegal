@@ -70,3 +70,17 @@ def cors_origins() -> list[str]:
     if override:
         return [origin.strip() for origin in override.split(",") if origin.strip()]
     return ["http://localhost:3000", "http://localhost:3222"]
+
+
+def openrouter_api_key() -> str | None:
+    """The API key used for LiteLLM's OpenRouter (Cerebras) calls.
+
+    None (not raised) when unset -- app.llm treats a missing key as just
+    another "the assistant is unavailable" case rather than a startup error,
+    since the rest of the app works fine without it.
+    """
+    return os.environ.get("OPENROUTER_API_KEY")
+
+
+def llm_timeout_seconds() -> float:
+    return float(os.environ.get("LLM_TIMEOUT_SECONDS", "30"))

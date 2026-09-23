@@ -35,6 +35,11 @@ def configure_env(
     monkeypatch.setenv("PRELEGAL_STATIC_DIR", str(static_dir))
     monkeypatch.setenv("PRELEGAL_CATALOG_PATH", str(REPO_ROOT / "catalog.json"))
     monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-at-least-32-bytes-long")
+    # Never actually used to call the real API -- LLM calls are always
+    # mocked in tests -- but app.llm treats a missing key as an immediate
+    # LlmUnavailableError, so tests need *a* value set to exercise the real
+    # completion-call path.
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
 
 
 @pytest.fixture()

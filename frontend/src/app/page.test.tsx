@@ -7,11 +7,18 @@ import { today } from "@/lib/nda";
 const buildNdaPdf = vi.fn();
 vi.mock("@/lib/ndaPdf", () => ({ buildNdaPdf: (...a: unknown[]) => buildNdaPdf(...a) }));
 
+const sendChatMessage = vi.fn();
+vi.mock("@/lib/api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+  return { ...actual, sendChatMessage: (...args: unknown[]) => sendChatMessage(...args) };
+});
+
 const doc = () => screen.getByRole("article");
 
 beforeEach(() => {
   buildNdaPdf.mockReset();
   buildNdaPdf.mockResolvedValue(new Blob(["%PDF-1.3"], { type: "application/pdf" }));
+  sendChatMessage.mockReset();
   URL.createObjectURL = vi.fn(() => "blob:mock");
   URL.revokeObjectURL = vi.fn();
 });
@@ -96,6 +103,53 @@ describe("Home page", () => {
     await user.clear(date);
     expect(date).toHaveValue("");
     expect(doc()).not.toHaveTextContent("July 4, 2030");
+  });
+
+  describe("AI chat drives the same state as manual edits", () => {
+    it("a chat-applied patch updates the live preview and clears the missing-field warning", async () => {
+      sendChatMessage.mockResolvedValue({
+        reply: "Got it, I've set the governing law and jurisdiction.",
+        updates: { governingLaw: "Delaware", jurisdiction: "Dover, DE" },
+        updatedFieldNames: ["governingLaw", "jurisdiction"],
+      });
+      const user = userEvent.setup();
+      render(<Home />);
+      expect(screen.getByRole("status")).toHaveTextContent("governing law and jurisdiction are still empty");
+
+      await user.type(screen.getByLabelText("Message"), "Delaware, Dover DE");
+      await user.click(screen.getByRole("button", { name: "Send" }));
+
+      await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+      expect(doc()).toHaveTextContent("Governing Law: Delaware");
+      // The field summary (manual-edit path) reflects the same state.
+      expect(screen.getByLabelText(/Governing law/)).toHaveValue("Delaware");
+    });
+
+    it("briefly highlights the fields the assistant just set", async () => {
+      sendChatMessage.mockResolvedValue({
+        reply: "Set.",
+        updates: { governingLaw: "Texas" },
+        updatedFieldNames: ["governingLaw"],
+      });
+      const user = userEvent.setup();
+      render(<Home />);
+      await user.type(screen.getByLabelText("Message"), "Texas");
+      await user.click(screen.getByRole("button", { name: "Send" }));
+      await waitFor(() =>
+        expect(screen.getByLabelText(/Governing law/).closest("label")).toHaveAttribute("data-updated", "true"),
+      );
+    });
+
+    it("a manual edit made after a chat update is preserved on the next chat turn's request", async () => {
+      sendChatMessage.mockResolvedValue({ reply: "Ok.", updates: {}, updatedFieldNames: [] });
+      const user = userEvent.setup();
+      render(<Home />);
+      await user.type(screen.getByLabelText(/Governing law/), "Nevada");
+      await user.type(screen.getByLabelText("Message"), "hello");
+      await user.click(screen.getByRole("button", { name: "Send" }));
+      await waitFor(() => expect(sendChatMessage).toHaveBeenCalledTimes(1));
+      expect(sendChatMessage.mock.calls[0][0].currentFields.governingLaw).toBe("Nevada");
+    });
   });
 
   describe("Download PDF", () => {

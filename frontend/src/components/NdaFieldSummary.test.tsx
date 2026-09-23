@@ -2,15 +2,22 @@ import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import NdaFormPanel from "./NdaFormPanel";
+import NdaFieldSummary from "./NdaFieldSummary";
 import { defaultForm, type NdaForm } from "@/lib/nda";
 
 /** Controlled harness so typing accumulates like it does in the real page. */
-function Harness({ onChange }: { onChange?: (f: NdaForm) => void }) {
+function Harness({
+  onChange,
+  highlightedFields,
+}: {
+  onChange?: (f: NdaForm) => void;
+  highlightedFields?: ReadonlySet<string>;
+}) {
   const [form, setForm] = useState<NdaForm>({ ...defaultForm(), effectiveDate: "2026-03-05" });
   return (
-    <NdaFormPanel
+    <NdaFieldSummary
       form={form}
+      highlightedFields={highlightedFields}
       onChange={(f) => {
         setForm(f);
         onChange?.(f);
@@ -21,7 +28,7 @@ function Harness({ onChange }: { onChange?: (f: NdaForm) => void }) {
 
 const last = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.at(-1)![0] as NdaForm;
 
-describe("NdaFormPanel", () => {
+describe("NdaFieldSummary", () => {
   it("renders every field with its default value", () => {
     render(<Harness />);
     expect(screen.getByLabelText(/^Purpose/)).toHaveValue(
@@ -37,6 +44,13 @@ describe("NdaFormPanel", () => {
     expect(screen.getAllByLabelText("Company")).toHaveLength(2);
     expect(screen.getAllByLabelText(/Notice address/)).toHaveLength(2);
     expect(screen.getAllByLabelText("Signing date")).toHaveLength(2);
+  });
+
+  it("puts governing law and jurisdiction in a 'Required' group", () => {
+    render(<Harness />);
+    const required = screen.getByRole("group", { name: "Required" });
+    expect(required).toHaveTextContent("Governing law");
+    expect(required).toHaveTextContent("Jurisdiction");
   });
 
   it("jurisdiction hint doesn't repeat 'courts located in', which clause 9 already says", () => {
@@ -175,5 +189,27 @@ describe("NdaFormPanel", () => {
     render(<Harness />);
     // fireEvent returns false when a listener called preventDefault()
     expect(fireEvent.submit(screen.getByRole("form", { name: "Mutual NDA details" }))).toBe(false);
+  });
+
+  describe("highlightedFields", () => {
+    it("marks a highlighted top-level field with data-updated", () => {
+      render(<Harness highlightedFields={new Set(["governingLaw"])} />);
+      const field = screen.getByLabelText(/Governing law/).closest("label");
+      expect(field).toHaveAttribute("data-updated", "true");
+      const other = screen.getByLabelText(/Jurisdiction/).closest("label");
+      expect(other).not.toHaveAttribute("data-updated");
+    });
+
+    it("marks a highlighted party field using its dotted path", () => {
+      render(<Harness highlightedFields={new Set(["party1.name"])} />);
+      const [name1, name2] = screen.getAllByLabelText("Print name");
+      expect(name1.closest("label")).toHaveAttribute("data-updated", "true");
+      expect(name2.closest("label")).not.toHaveAttribute("data-updated");
+    });
+
+    it("no fields are marked when highlightedFields is empty/unset", () => {
+      render(<Harness />);
+      expect(document.querySelector("[data-updated]")).toBeNull();
+    });
   });
 });
