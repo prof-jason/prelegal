@@ -44,6 +44,14 @@ def catalog_path() -> Path:
     return REPO_ROOT / "catalog.json"
 
 
+def templates_dir() -> Path:
+    """Where the legal document templates (templates/*.md) live."""
+    override = os.environ.get("PRELEGAL_TEMPLATES_DIR")
+    if override:
+        return Path(override)
+    return REPO_ROOT / "templates"
+
+
 def jwt_secret_key() -> str:
     """Secret used to sign auth tokens.
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { MAX_YEARS, type NdaForm, type Party } from "@/lib/nda";
-import styles from "./NdaFieldSummary.module.css";
+import styles from "./FieldSummary.module.css";
 
 type Props = {
   form: NdaForm;

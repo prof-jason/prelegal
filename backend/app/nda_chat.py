@@ -8,12 +8,12 @@ reusing app.llm.get_structured_completion unchanged.
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from pydantic import BaseModel
 
 from app import llm
 from app.schemas import ChatTurn, NdaFieldsPatch, PartyFieldsPatch
+from app.text_clean import clean_date as _clean_date
+from app.text_clean import clean_str as _clean_str
 
 # Sent to the LLM every turn (no server-side conversation persistence -- the
 # client resends the full transcript). Capped so a very long back-and-forth
@@ -106,27 +106,9 @@ def build_llm_messages(history: list[ChatTurn], current_fields: NdaFieldsPatch) 
     ]
 
 
-def _clean_str(value: str | None) -> str | None:
-    if value is None:
-        return None
-    value = value.strip()
-    return value or None
-
-
 def _clean_enum(value: str | None, valid: set[str]) -> str | None:
     value = _clean_str(value)
     return value if value in valid else None
-
-
-def _clean_date(value: str | None) -> str | None:
-    value = _clean_str(value)
-    if value is None:
-        return None
-    try:
-        datetime.strptime(value, "%Y-%m-%d")
-    except ValueError:
-        return None
-    return value
 
 
 # Matches frontend/src/lib/nda.ts's MAX_YEARS.

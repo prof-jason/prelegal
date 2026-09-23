@@ -7,9 +7,10 @@ the existing form state, which also isn't persisted across a refresh).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 
 from app import llm, nda_chat
+from app.routers.llm_errors import http_exception
 from app.schemas import NdaChatRequest, NdaChatResponse
 
 router = APIRouter()
@@ -26,21 +27,8 @@ def chat(body: NdaChatRequest) -> NdaChatResponse:
         # a normal (200) in-chat reply instead of an error the user has to
         # dismiss.
         extraction = nda_chat.degraded_extraction()
-    except llm.LlmRateLimitedError as e:
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            {"error_code": "llm_rate_limited", "message": e.user_message},
-        ) from e
-    except llm.LlmTimeoutError as e:
-        raise HTTPException(
-            status.HTTP_504_GATEWAY_TIMEOUT,
-            {"error_code": "llm_timeout", "message": e.user_message},
-        ) from e
-    except llm.LlmUnavailableError as e:
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY,
-            {"error_code": "llm_unavailable", "message": e.user_message},
-        ) from e
+    except llm.LlmError as e:
+        raise http_exception(e) from e
 
     normalized = nda_chat.normalize_patch(extraction.updates)
     field_names = nda_chat.reconcile_field_names(extraction.updated_field_names, normalized)

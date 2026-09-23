@@ -1,3 +1,5 @@
+import { unsupportedPdfCharsIn } from "@/lib/pdfChars";
+
 export type NdaForm = {
   purpose: string;
   /** null = untouched; the UI then defaults it to the visitor's local today. */
@@ -253,14 +255,6 @@ export const refValue = (f: NdaForm, ref: Extract<Segment, object>["ref"]): stri
   }
 };
 
-/**
- * Characters the PDF's built-in Times font (WinAnsi) can draw. Anything else in user text shows in the
- * browser preview but can come out blank or garbled in the PDF.
- */
-const PDF_SAFE = /^[\u0009\u000A\u000D\u0020-\u007E\u00A0-\u00FF\u0152\u0153\u0160\u0161\u0178\u017D\u017E\u0192\u02C6\u02DC\u2013\u2014\u2018-\u201A\u201C-\u201E\u2020-\u2022\u2026\u2030\u2039\u203A\u20AC\u2122]$/;
-
 /** Distinct characters in the user's text that the PDF font cannot render. */
-export const unsupportedPdfChars = (f: NdaForm): string[] => {
-  const text = [f.purpose, f.governingLaw, f.jurisdiction, f.modifications, ...[f.party1, f.party2].flatMap((p) => Object.values(p))].join("");
-  return [...new Set([...text].filter((c) => !PDF_SAFE.test(c)))];
-};
+export const unsupportedPdfChars = (f: NdaForm): string[] =>
+  unsupportedPdfCharsIn([f.purpose, f.governingLaw, f.jurisdiction, f.modifications, ...[f.party1, f.party2].flatMap((p) => Object.values(p))]);

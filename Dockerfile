@@ -22,14 +22,16 @@ RUN uv sync --locked --no-install-project
 COPY backend/app ./app
 RUN uv sync --locked
 
-# The document catalog and the built frontend are the other things the
-# backend serves at runtime. (templates/ isn't copied in yet -- nothing
-# reads template files until a future issue adds document generation.)
+# The document catalog, the templates it points to (parsed at startup to
+# derive each document's fields) and the built frontend are the other
+# things the backend serves at runtime.
 COPY catalog.json /app/catalog.json
+COPY templates/ /app/templates/
 COPY --from=frontend-build /app/frontend/out /app/frontend/out
 
 ENV PRELEGAL_STATIC_DIR=/app/frontend/out \
     PRELEGAL_CATALOG_PATH=/app/catalog.json \
+    PRELEGAL_TEMPLATES_DIR=/app/templates \
     PRELEGAL_DB_PATH=/app/backend/data/app.db \
     PATH="/app/backend/.venv/bin:$PATH"
 

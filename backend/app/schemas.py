@@ -115,3 +115,59 @@ class NdaChatResponse(BaseModel):
     reply: str
     updates: NdaFieldsPatch
     updated_field_names: list[str] = []
+
+
+class DocumentSummary(BaseModel):
+    id: str
+    name: str
+    description: str
+    kind: Literal["nda", "generic"]
+
+
+class DocumentFieldOut(BaseModel):
+    key: str
+    label: str
+    hint: str
+    type: Literal["text", "date"]
+    group: str
+
+
+class PartyOut(BaseModel):
+    role: str
+    fields: list[DocumentFieldOut]
+
+
+class DocumentDetail(BaseModel):
+    """A template-driven document: its fields plus its template markdown,
+    with every variable span tagged data-field="<key>" or data-role (a party
+    role name, rendered as plain text)."""
+
+    id: str
+    name: str
+    description: str
+    terms: list[DocumentFieldOut]
+    parties: list[PartyOut]
+    markdown: str
+
+
+class DocumentChatRequest(BaseModel):
+    messages: list[ChatTurn]
+    # Every field the client currently has, keyed by field key ("" = unset).
+    current_fields: dict[str, str] = {}
+
+
+class DocumentChatResponse(BaseModel):
+    reply: str
+    # Only the fields set this turn (turn-scoped delta, like NdaChatResponse).
+    updates: dict[str, str] = {}
+    updated_field_names: list[str] = []
+
+
+class IntakeChatRequest(BaseModel):
+    messages: list[ChatTurn]
+
+
+class IntakeChatResponse(BaseModel):
+    reply: str
+    # Set once the user has picked a document; null means keep chatting.
+    document_id: str | None = None
