@@ -15,6 +15,16 @@
 - **`src/lib/ndaPdf.test.tsx`** – generates the real PDF in Node and reads its text back with pdf.js: values present,
   clause order, no hyphenation, 3-page layout, signature table never split from its lead-in, no stranded clause number,
   accents/long text/non-Latin input do not crash.
+- **`src/lib/template.test.ts`** – the template parser against fixtures and every real template in `../templates`
+  (all list items kept, clause numbering, no raw markup left in the text, only web links).
+- **`src/lib/document.test.ts`, `src/components/Document*.test.tsx`, `src/app/page.test.tsx`** – template-driven
+  documents (merge, preview, cover page, PDF download) and the start screen flow: cards, intake chat, unsupported
+  requests, carrying the conversation into the chosen document, "Change document".
+- **`src/lib/documentPdf.test.tsx`** – generates a template-driven PDF and reads it back (cover page first, filled
+  terms, `[Term]` placeholders, the longest real template renders).
+- **`e2e/documents.spec.ts`** – start screen and a full SLA flow in Chrome with the API mocked from
+  `e2e/fixtures/*.json`. Those fixtures are captured from the real backend, and `backend/tests/test_e2e_fixtures.py`
+  fails if they drift.
 - **`e2e/nda.spec.ts`** – full flows in Chrome: fill every field, live preview, PDF download contents, mobile/tablet
   overflow, console cleanliness (no hydration warnings), keyboard use, control labelling.
 
@@ -64,4 +74,6 @@ Run `npm run build && npx next start` and open http://localhost:3000 in Chrome. 
 - Clause 9 says "the laws of the State of …", so "governing law" must be a US state name (the field says so). This is the
   Common Paper template's wording.
 - The tool shows a not-legal-advice notice but does no legal validation of the entries.
-- Only the Mutual NDA template is supported (issue #4 scope).
+- Template-driven documents show each variable in the standard terms as its defined term (underlined once it has a
+  value, `[Term]` until then), with the values on the generated cover page, rather than splicing free-text values
+  into the legal prose.

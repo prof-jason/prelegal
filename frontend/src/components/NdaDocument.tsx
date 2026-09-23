@@ -7,7 +7,7 @@ import {
   termText,
   confidentialityText,
 } from "@/lib/nda";
-import styles from "./NdaDocument.module.css";
+import styles from "./Document.module.css";
 
 const partyRows: { label: string; get: (p: Party) => string }[] = [
   { label: "Signature", get: () => "" },

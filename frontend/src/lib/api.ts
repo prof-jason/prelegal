@@ -1,4 +1,5 @@
 import type { NdaFieldsPatch } from "@/lib/nda";
+import type { DocumentDetail, DocumentSummary, FieldValues } from "@/lib/document";
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 
@@ -6,6 +7,19 @@ export type NdaChatResponse = {
   reply: string;
   updates: NdaFieldsPatch;
   updatedFieldNames: string[];
+};
+
+export type DocumentChatResponse = {
+  reply: string;
+  /** Only the fields the assistant set this turn, keyed by field key. */
+  updates: FieldValues;
+  updatedFieldNames: string[];
+};
+
+export type IntakeChatResponse = {
+  reply: string;
+  /** Set once the user has picked a document; null means keep chatting. */
+  documentId: string | null;
 };
 
 export class ChatApiError extends Error {
@@ -31,17 +45,17 @@ function resolveApiBase(): string {
   return window.location.port === "3000" ? "http://localhost:8000" : "";
 }
 
-export async function sendChatMessage(req: {
-  messages: ChatTurn[];
-  currentFields: NdaFieldsPatch;
-}): Promise<NdaChatResponse> {
+/** Fetch JSON from the backend, turning every failure into a ChatApiError
+ * carrying a user-presentable message. */
+async function requestJson<T>(path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${resolveApiBase()}/api/nda/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: req.messages, current_fields: req.currentFields }),
-    });
+    res = await fetch(
+      `${resolveApiBase()}${path}`,
+      body === undefined
+        ? undefined
+        : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+    );
   } catch {
     throw new ChatApiError("network_error", "Could not reach the server. Check your connection and try again.", 0);
   }
@@ -49,8 +63,9 @@ export async function sendChatMessage(req: {
   if (!res.ok) {
     let detail: { error_code?: string; message?: string } | undefined;
     try {
-      const body = await res.json();
-      detail = body?.detail;
+      const data = await res.json();
+      // FastAPI's HTTPException puts either our {error_code, message} envelope or a plain string in `detail`.
+      detail = typeof data?.detail === "object" ? data.detail : undefined;
     } catch {
       // Non-JSON error body (e.g. a proxy's plain-text 502 page) -- fall through to the generic message.
     }
@@ -60,7 +75,36 @@ export async function sendChatMessage(req: {
       res.status,
     );
   }
+  return res.json();
+}
 
-  const data = await res.json();
+export async function sendChatMessage(req: {
+  messages: ChatTurn[];
+  currentFields: NdaFieldsPatch;
+}): Promise<NdaChatResponse> {
+  const data = await requestJson<{ reply: string; updates: NdaFieldsPatch; updated_field_names: string[] }>(
+    "/api/nda/chat",
+    { messages: req.messages, current_fields: req.currentFields },
+  );
+  return { reply: data.reply, updates: data.updates, updatedFieldNames: data.updated_field_names };
+}
+
+export const fetchDocuments = () => requestJson<DocumentSummary[]>("/api/documents");
+
+export const fetchDocument = (id: string) => requestJson<DocumentDetail>(`/api/documents/${encodeURIComponent(id)}`);
+
+export async function sendIntakeMessage(messages: ChatTurn[]): Promise<IntakeChatResponse> {
+  const data = await requestJson<{ reply: string; document_id: string | null }>("/api/intake/chat", { messages });
+  return { reply: data.reply, documentId: data.document_id };
+}
+
+export async function sendDocumentChatMessage(
+  documentId: string,
+  req: { messages: ChatTurn[]; currentFields: FieldValues },
+): Promise<DocumentChatResponse> {
+  const data = await requestJson<{ reply: string; updates: FieldValues; updated_field_names: string[] }>(
+    `/api/documents/${encodeURIComponent(documentId)}/chat`,
+    { messages: req.messages, current_fields: req.currentFields },
+  );
   return { reply: data.reply, updates: data.updates, updatedFieldNames: data.updated_field_names };
 }

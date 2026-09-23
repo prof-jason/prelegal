@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The current implementation supports the Mutual NDA document type via AI chat (see Progress below); the other 10 document types are not wired up yet. Login is currently a fake, unauthenticated placeholder — real signup/login/me endpoints exist on the backend but the frontend doesn't call them yet — and there is no document persistence yet (chat/form state is client-side only, lost on refresh).
+The current implementation supports every catalog document via AI chat (see Progress below): the Mutual NDA through its bespoke creator, and the other 10 through a template-driven engine. Login is currently a fake, unauthenticated placeholder — real signup/login/me endpoints exist on the backend but the frontend doesn't call them yet — and there is no document persistence yet (chat/form state is client-side only, lost on refresh).
 
 ## Development process
 
@@ -72,7 +72,23 @@ Backend available at http://localhost:8000
   types later. Users can still directly edit any field in an "editable
   summary" panel alongside chat. No auth and no server-side persistence
   for chat yet (client-side only, same as the form before it).
-- **Not started yet**: AI chat / document generation for the other 10
-  catalog document types; wiring the fake login screen to the real auth
+- **Issue #7** — All catalog document types. The app now opens on an
+  intake chat (`POST /api/intake/chat`) plus a card per document
+  (`GET /api/documents`); the assistant matches the request to a catalog
+  document, or says we can't generate it and offers the closest one. The
+  conversation carries over into the chosen document's chat. The Mutual NDA
+  keeps its bespoke creator; the other 10 are template-driven:
+  `app/documents.py` derives each document's fields from its template's
+  `<span class="*_link">` variables (possessives/plurals folded, party roles
+  and Notice Address excluded) and re-serves the template with each span
+  tagged `data-field`/`data-role` (`GET /api/documents/{id}`);
+  `app/field_hints.py` holds a curated hint per field (a test enforces full
+  coverage); `app/document_chat.py` builds a per-document structured-output
+  model (`POST /api/documents/{id}/chat`). The frontend parses the tagged
+  template once (`lib/template.ts`) and renders it as a generated cover page
+  plus standard terms, both as a live preview and as a PDF. Templates are
+  loaded and validated at startup, and the Dockerfile now ships
+  `templates/`.
+- **Not started yet**: wiring the fake login screen to the real auth
   endpoints; any document persistence.
 

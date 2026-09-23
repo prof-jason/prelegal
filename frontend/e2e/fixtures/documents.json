@@ -1,0 +1,68 @@
+[
+  {
+    "id": "ai-addendum",
+    "name": "AI Addendum",
+    "description": "Addendum to an agreement covering the use of AI services, including model training, restrictions and IP/privacy terms.",
+    "kind": "generic"
+  },
+  {
+    "id": "baa",
+    "name": "Business Associate Agreement",
+    "description": "HIPAA business associate agreement governing a provider's handling of protected health information (PHI).",
+    "kind": "generic"
+  },
+  {
+    "id": "csa",
+    "name": "Cloud Service Agreement",
+    "description": "Standard terms for a provider's subscription cloud service (SaaS), including access, support, fees and liability.",
+    "kind": "generic"
+  },
+  {
+    "id": "dpa",
+    "name": "Data Processing Agreement",
+    "description": "Terms for processing personal data, covering processor/subprocessor roles and data protection obligations (e.g. GDPR).",
+    "kind": "generic"
+  },
+  {
+    "id": "design-partner-agreement",
+    "name": "Design Partner Agreement",
+    "description": "Agreement for early-stage design partners who get early product access in exchange for feedback.",
+    "kind": "generic"
+  },
+  {
+    "id": "mutual-nda",
+    "name": "Mutual Non-Disclosure Agreement",
+    "description": "Mutual NDA (cover page and standard terms) for two parties sharing confidential information, capturing purpose, term and party details.",
+    "kind": "nda"
+  },
+  {
+    "id": "psa",
+    "name": "Professional Services Agreement",
+    "description": "Agreement for professional services delivered under statements of work, with change orders and deliverable acceptance.",
+    "kind": "generic"
+  },
+  {
+    "id": "partnership-agreement",
+    "name": "Partnership Agreement",
+    "description": "Agreement between two parties setting out cooperation, obligations, payment and taxes for a business partnership.",
+    "kind": "generic"
+  },
+  {
+    "id": "pilot-agreement",
+    "name": "Pilot Agreement",
+    "description": "Agreement for a time-limited trial (pilot) of a product before a full commercial commitment.",
+    "kind": "generic"
+  },
+  {
+    "id": "sla",
+    "name": "Service Level Agreement",
+    "description": "Service levels for uptime and support response times, with remedies for missed targets.",
+    "kind": "generic"
+  },
+  {
+    "id": "software-license-agreement",
+    "name": "Software License Agreement",
+    "description": "Standard terms for licensing software to a customer for a subscription period.",
+    "kind": "generic"
+  }
+]

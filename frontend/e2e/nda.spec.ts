@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { pdfPages } from "../src/test/pdfText";
+import { openNda } from "./helpers";
 
 const fillEverything = async (page: Page) => {
   await page.getByLabel(/^Purpose/).fill("Exploring a joint venture.");
@@ -33,15 +34,14 @@ const downloadPdf = async (page: Page) => {
 };
 
 test.beforeEach(async ({ page }) => {
-  // Skip the fake login screen (see login.spec.ts for coverage of it) so
-  // this suite can keep testing the NDA flow directly, as before.
-  await page.addInitScript(() => localStorage.setItem("prelegal.auth", "1"));
-  await page.goto("/");
+  // Log in and open the Mutual NDA from the start screen, so this suite
+  // keeps testing the NDA flow directly, as before.
+  await openNda(page);
 });
 
 test.describe("page load", () => {
   test("shows title, form and document with sensible defaults", async ({ page }) => {
-    await expect(page).toHaveTitle("Mutual NDA Creator");
+    await expect(page).toHaveTitle("Prelegal");
     await expect(page.getByRole("heading", { level: 1, name: "Mutual NDA Creator" })).toBeVisible();
     await expect(page.getByRole("form", { name: "Mutual NDA details" })).toBeVisible();
     const doc = page.getByRole("article");
@@ -61,6 +61,7 @@ test.describe("page load", () => {
     page.on("console", (m) => ["error", "warning"].includes(m.type()) && problems.push(`${m.type()}: ${m.text()}`));
     page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
     await page.reload();
+    await page.getByRole("button", { name: /Mutual Non-Disclosure Agreement/ }).click();
     await page.getByRole("article").waitFor();
     // let hydration + the client-only date settle
     await expect(page.getByLabel("Effective date")).not.toHaveValue("");
@@ -75,7 +76,7 @@ test.describe("default effective date uses the visitor's local day, not UTC", ()
 
   test("shows 2026-06-16 when it is 16 June locally but 15 June in UTC", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-06-15T12:00:00Z"));
-    await page.goto("/");
+    await openNda(page);
     await expect(page.getByLabel("Effective date")).toHaveValue("2026-06-16");
     await expect(page.getByRole("article")).toContainText("June 16, 2026");
   });

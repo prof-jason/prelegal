@@ -8,8 +8,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 
-from app import config, db
+from app import config, db, documents
 from app.routers import auth, catalog, nda_chat
+from app.routers import documents as documents_router
 
 
 @asynccontextmanager
@@ -17,6 +18,9 @@ async def lifespan(app: FastAPI):
     # The database is recreated from scratch every time the app starts, so
     # there's never anything to migrate -- just rebuild the schema.
     db.reset_db()
+    # Parse and validate every document template up front, so a missing or
+    # broken template fails the boot rather than a user's first request.
+    documents.reload()
     yield
 
 
@@ -40,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
     app.include_router(catalog.router, prefix="/api", tags=["catalog"])
     app.include_router(nda_chat.router, prefix="/api", tags=["nda-chat"])
+    app.include_router(documents_router.router, prefix="/api", tags=["documents"])
 
     # html=True: "/" serves index.html, and an unmatched path serves the
     # frontend's own generated 404.html (with a 404 status) if one is

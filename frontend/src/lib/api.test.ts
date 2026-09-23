@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ChatApiError, sendChatMessage } from "./api";
+import { ChatApiError, fetchDocument, fetchDocuments, sendChatMessage, sendDocumentChatMessage, sendIntakeMessage } from "./api";
 
 const setPort = (port: string) => {
   Object.defineProperty(window, "location", {
@@ -98,5 +98,49 @@ describe("sendChatMessage", () => {
       errorCode: "network_error",
       status: 0,
     });
+  });
+});
+
+describe("document API", () => {
+  const stubFetch = (body: unknown) => {
+    setPort("8000");
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => body });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  };
+
+  it("fetchDocuments GETs the document list", async () => {
+    const fetchMock = stubFetch([{ id: "sla", name: "SLA", description: "d", kind: "generic" }]);
+    expect(await fetchDocuments()).toEqual([{ id: "sla", name: "SLA", description: "d", kind: "generic" }]);
+    expect(fetchMock.mock.calls[0]).toEqual(["/api/documents", undefined]);
+  });
+
+  it("fetchDocument GETs one document, URL-encoding its id", async () => {
+    const fetchMock = stubFetch({ id: "sla" });
+    await fetchDocument("a b");
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/documents/a%20b");
+  });
+
+  it("sendIntakeMessage posts the transcript and maps document_id", async () => {
+    const fetchMock = stubFetch({ reply: "SLA it is.", document_id: "sla" });
+    const result = await sendIntakeMessage([{ role: "user", content: "SLA" }]);
+    expect(result).toEqual({ reply: "SLA it is.", documentId: "sla" });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/intake/chat");
+    expect(JSON.parse(init.body)).toEqual({ messages: [{ role: "user", content: "SLA" }] });
+  });
+
+  it("sendDocumentChatMessage posts to the document's chat and maps the response", async () => {
+    const fetchMock = stubFetch({ reply: "ok", updates: { target_uptime: "99%" }, updated_field_names: ["target_uptime"] });
+    const result = await sendDocumentChatMessage("sla", { messages: [], currentFields: { target_uptime: "" } });
+    expect(result).toEqual({ reply: "ok", updates: { target_uptime: "99%" }, updatedFieldNames: ["target_uptime"] });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/documents/sla/chat");
+    expect(JSON.parse(init.body)).toEqual({ messages: [], current_fields: { target_uptime: "" } });
+  });
+
+  it("a plain-string FastAPI detail (e.g. a 404) falls back to the generic message", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({ detail: "No document" }) }));
+    await expect(fetchDocument("nope")).rejects.toMatchObject({ errorCode: "unknown_error", status: 404 });
   });
 });

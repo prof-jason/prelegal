@@ -26,3 +26,14 @@
 .attribution { font-size: 12px; color: #666; margin-top: 24px; }
 .pageBreak { break-before: page; margin-top: 48px !important; }
 @media (max-width: 640px) { .doc { padding: 24px 18px; } }
+
+/* Template-driven documents (DocumentPreview). */
+.terms { margin: 4px 0 0; }
+.terms > div { display: grid; grid-template-columns: minmax(140px, 32%) 1fr; gap: 12px; padding: 4px 0; border-bottom: 1px dotted #ddd; }
+.terms dt { font-weight: 600; }
+.terms dd { margin: 0; white-space: pre-wrap; }
+.doc .clauses { list-style: none; padding-left: 0; }
+.doc .clauses .clauses { padding-left: 22px; margin-top: 8px; }
+.doc .clauses li { margin-bottom: 10px; }
+.clauseNumber { font-weight: 600; margin-right: 4px; }
+.placeholder { background: color-mix(in srgb, var(--color-accent-yellow) 22%, transparent); border-radius: 3px; padding: 0 2px; }
