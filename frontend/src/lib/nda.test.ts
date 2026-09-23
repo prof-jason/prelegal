@@ -5,6 +5,7 @@ import {
   confidentialityText,
   defaultForm,
   formatDate,
+  mergeNdaFieldsPatch,
   normalizeYears,
   refValue,
   standardTerms,
@@ -12,6 +13,7 @@ import {
   today,
   unsupportedPdfChars,
   years,
+  type NdaFieldsPatch,
   type NdaForm,
 } from "./nda";
 
@@ -192,6 +194,55 @@ describe("defaultForm", () => {
     const b = defaultForm();
     a.party1.name = "changed";
     expect(b.party1.name).toBe("");
+  });
+});
+
+describe("mergeNdaFieldsPatch", () => {
+  it("overwrites only the fields present in the patch", () => {
+    const f = form({ governingLaw: "", jurisdiction: "" });
+    const patch: NdaFieldsPatch = { governingLaw: "Delaware" };
+    const merged = mergeNdaFieldsPatch(f, patch);
+    expect(merged.governingLaw).toBe("Delaware");
+    expect(merged.jurisdiction).toBe(""); // untouched
+    expect(merged.purpose).toBe(f.purpose); // untouched
+  });
+
+  it("null/undefined patch fields are no-ops, not clears", () => {
+    const f = form({ governingLaw: "Texas" });
+    const merged = mergeNdaFieldsPatch(f, { governingLaw: null });
+    expect(merged.governingLaw).toBe("Texas");
+  });
+
+  it("an empty patch changes nothing", () => {
+    const f = form({ governingLaw: "Texas", jurisdiction: "Austin, TX" });
+    expect(mergeNdaFieldsPatch(f, {})).toEqual(f);
+  });
+
+  it("sparse-merges party fields, leaving unmentioned party fields alone", () => {
+    const f = form();
+    f.party1 = { name: "Ann Lee", title: "CEO", company: "", address: "", date: "" };
+    const merged = mergeNdaFieldsPatch(f, { party1: { company: "Acme Inc" } });
+    expect(merged.party1).toEqual({ name: "Ann Lee", title: "CEO", company: "Acme Inc", address: "", date: "" });
+  });
+
+  it("leaves party2 alone when only party1 is patched", () => {
+    const f = form();
+    f.party2 = { name: "Bo Chen", title: "", company: "", address: "", date: "" };
+    const merged = mergeNdaFieldsPatch(f, { party1: { name: "Ann Lee" } });
+    expect(merged.party2).toEqual(f.party2);
+  });
+
+  it("accepts valid termType/confidentialityType enum values from the patch", () => {
+    const f = form();
+    const merged = mergeNdaFieldsPatch(f, { termType: "continues", confidentialityType: "perpetuity" });
+    expect(merged.termType).toBe("continues");
+    expect(merged.confidentialityType).toBe("perpetuity");
+  });
+
+  it("a null effectiveDate patch leaves the form's existing value (even if already null) alone", () => {
+    const f = { ...form(), effectiveDate: null };
+    const merged = mergeNdaFieldsPatch(f, { effectiveDate: null });
+    expect(merged.effectiveDate).toBeNull();
   });
 });
 

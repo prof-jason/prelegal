@@ -1,15 +1,21 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import NdaChatPanel from "@/components/NdaChatPanel";
 import NdaDocument from "@/components/NdaDocument";
-import NdaFormPanel from "@/components/NdaFormPanel";
-import { defaultForm, today, unsupportedPdfChars } from "@/lib/nda";
+import NdaFieldSummary from "@/components/NdaFieldSummary";
+import { defaultForm, mergeNdaFieldsPatch, today, unsupportedPdfChars, type NdaFieldsPatch } from "@/lib/nda";
 import styles from "./page.module.css";
 
 const subscribeNever = () => () => {};
 
+/** How long a field stays visually highlighted after the AI chat sets it. */
+const HIGHLIGHT_MS = 2500;
+
 export default function Home() {
   const [form, setForm] = useState(defaultForm);
+  const [highlighted, setHighlighted] = useState<ReadonlySet<string>>(new Set());
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +33,13 @@ export default function Home() {
     !resolved.jurisdiction.trim() && "jurisdiction",
   ].filter(Boolean);
   const badChars = unsupportedPdfChars(resolved);
+
+  const applyPatch = (patch: NdaFieldsPatch, updatedFieldNames: string[]) => {
+    setForm((prev) => mergeNdaFieldsPatch(prev, patch));
+    setHighlighted(new Set(updatedFieldNames));
+    clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlighted(new Set()), HIGHLIGHT_MS);
+  };
 
   const download = async () => {
     setBusy(true);
@@ -55,7 +68,7 @@ export default function Home() {
       <header className={styles.header}>
         <div>
           <h1>Mutual NDA Creator</h1>
-          <p>Fill in the details and watch your agreement update live.</p>
+          <p>Chat with the assistant to fill in the details, or edit any field directly, and watch your agreement update live.</p>
         </div>
         <div className={styles.actions}>
           <button onClick={download} disabled={busy} aria-busy={busy}>
@@ -89,7 +102,8 @@ export default function Home() {
       )}
       <div className={styles.layout}>
         <section className={styles.formCol} aria-label="Agreement details">
-          <NdaFormPanel form={resolved} onChange={setForm} />
+          <NdaChatPanel form={resolved} onApplyPatch={applyPatch} />
+          <NdaFieldSummary form={resolved} onChange={setForm} highlightedFields={highlighted} />
         </section>
         <section className={styles.previewCol} aria-label="Agreement preview">
           <NdaDocument form={resolved} />

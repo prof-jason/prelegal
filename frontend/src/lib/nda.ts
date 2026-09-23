@@ -21,6 +21,67 @@ export type Party = {
   date: string;
 };
 
+/** A turn-scoped patch from the AI chat backend (see backend/app/schemas.py's
+ * NdaFieldsPatch/PartyFieldsPatch): null/undefined means "not mentioned or
+ * unchanged this turn" for every field, never "clear this field". */
+export type PartyFieldsPatch = {
+  name?: string | null;
+  title?: string | null;
+  company?: string | null;
+  address?: string | null;
+  date?: string | null;
+};
+
+export type NdaFieldsPatch = {
+  purpose?: string | null;
+  effectiveDate?: string | null;
+  termType?: string | null;
+  termYears?: string | null;
+  confidentialityType?: string | null;
+  confidentialityYears?: string | null;
+  governingLaw?: string | null;
+  jurisdiction?: string | null;
+  modifications?: string | null;
+  party1?: PartyFieldsPatch | null;
+  party2?: PartyFieldsPatch | null;
+};
+
+function mergePartyPatch(party: Party, patch: PartyFieldsPatch | null | undefined): Party {
+  if (!patch) return party;
+  return {
+    name: patch.name ?? party.name,
+    title: patch.title ?? party.title,
+    company: patch.company ?? party.company,
+    address: patch.address ?? party.address,
+    date: patch.date ?? party.date,
+  };
+}
+
+/**
+ * Sparse-merges an AI chat patch into an existing NdaForm. Only fields the
+ * backend actually set (non-null) overwrite the corresponding NdaForm
+ * field; everything else -- including nested party fields -- is left as-is.
+ * termType/confidentialityType are cast from the patch's plain-string type:
+ * the backend already validates them against the same enum before this
+ * ever reaches the client (see app.nda_chat.normalize_patch).
+ */
+export function mergeNdaFieldsPatch(form: NdaForm, patch: NdaFieldsPatch): NdaForm {
+  return {
+    purpose: patch.purpose ?? form.purpose,
+    effectiveDate: patch.effectiveDate ?? form.effectiveDate,
+    termType: (patch.termType as NdaForm["termType"] | undefined) ?? form.termType,
+    termYears: patch.termYears ?? form.termYears,
+    confidentialityType:
+      (patch.confidentialityType as NdaForm["confidentialityType"] | undefined) ?? form.confidentialityType,
+    confidentialityYears: patch.confidentialityYears ?? form.confidentialityYears,
+    governingLaw: patch.governingLaw ?? form.governingLaw,
+    jurisdiction: patch.jurisdiction ?? form.jurisdiction,
+    modifications: patch.modifications ?? form.modifications,
+    party1: mergePartyPatch(form.party1, patch.party1),
+    party2: mergePartyPatch(form.party2, patch.party2),
+  };
+}
+
 /** Today's date in the user's local timezone as YYYY-MM-DD (toISOString would use UTC and can be a day off). */
 export const today = (now: Date = new Date()) => {
   const pad = (n: number) => String(n).padStart(2, "0");

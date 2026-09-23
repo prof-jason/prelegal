@@ -245,10 +245,12 @@ test.describe("PDF download", () => {
 test.describe("layout", () => {
   test("desktop: form and document sit side by side", async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
-    const form = await page.getByRole("form", { name: "Mutual NDA details" }).boundingBox();
+    // The left column now stacks the chat panel above the editable field
+    // summary (form), so compare against the whole column, not just the form.
+    const column = await page.getByRole("region", { name: "Agreement details" }).boundingBox();
     const doc = await page.getByRole("article").boundingBox();
-    expect(form!.x + form!.width).toBeLessThanOrEqual(doc!.x);
-    expect(Math.abs(form!.y - doc!.y)).toBeLessThan(40);
+    expect(column!.x + column!.width).toBeLessThanOrEqual(doc!.x);
+    expect(Math.abs(column!.y - doc!.y)).toBeLessThan(40);
     await page.screenshot({ path: "e2e/.results/desktop.png", fullPage: true });
   });
 
@@ -306,7 +308,7 @@ test.describe("accessibility basics", () => {
     // (The native date input has month/day/year sub-fields, so start after it.)
     await page.getByLabel(/Governing law/).focus();
     const order: string[] = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 20 && order.at(-1) !== "Print name"; i++) {
       await page.keyboard.press("Tab");
       order.push(
         await page.evaluate(() => {
@@ -315,9 +317,12 @@ test.describe("accessibility basics", () => {
         }),
       );
     }
+    // Required fields lead the summary panel, then agreement terms, then parties.
     expect(order[0]).toMatch(/^Jurisdiction/);
-    expect(order[1]).toMatch(/^MNDA modifications/);
-    expect(order[2]).toBe("Print name");
+    expect(order[1]).toMatch(/^Purpose/);
+    const modificationsIndex = order.findIndex((label) => /^MNDA modifications/.test(label));
+    expect(modificationsIndex).toBeGreaterThan(-1);
+    expect(modificationsIndex).toBeLessThan(order.indexOf("Print name"));
     await page.getByRole("button", { name: "Download PDF" }).focus();
     const [download] = await Promise.all([page.waitForEvent("download"), page.keyboard.press("Enter")]);
     expect(download.suggestedFilename()).toBe("Mutual-NDA.pdf");

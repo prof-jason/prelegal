@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 
 from app import config, db
-from app.routers import auth, catalog
+from app.routers import auth, catalog, nda_chat
 
 
 @asynccontextmanager
@@ -39,6 +39,7 @@ def create_app() -> FastAPI:
     # below so they always take priority over it.
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
     app.include_router(catalog.router, prefix="/api", tags=["catalog"])
+    app.include_router(nda_chat.router, prefix="/api", tags=["nda-chat"])
 
     # html=True: "/" serves index.html, and an unmatched path serves the
     # frontend's own generated 404.html (with a 404 status) if one is

@@ -8,6 +8,8 @@ dependencies = [
     "uvicorn>=0.32",
     "argon2-cffi>=23.1",
     "pyjwt>=2.9",
+    "litellm>=1.102.1",
+    "pydantic>=2.13.5",
 ]
 
 [dependency-groups]
