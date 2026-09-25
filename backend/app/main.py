@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 
 from app import config, db, documents
-from app.routers import auth, catalog, nda_chat
+from app.deps import get_current_user
+from app.routers import auth, catalog, nda_chat, saved_documents
 from app.routers import documents as documents_router
 
 
@@ -41,10 +42,14 @@ def create_app() -> FastAPI:
 
     # Concrete API routes are registered before the catch-all static mount
     # below so they always take priority over it.
+    # Everything except signup/login (and health, above) requires a signed-in
+    # user. Enforced here, per router, so a new endpoint can't forget it.
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-    app.include_router(catalog.router, prefix="/api", tags=["catalog"])
-    app.include_router(nda_chat.router, prefix="/api", tags=["nda-chat"])
-    app.include_router(documents_router.router, prefix="/api", tags=["documents"])
+    signed_in = [Depends(get_current_user)]
+    app.include_router(catalog.router, prefix="/api", tags=["catalog"], dependencies=signed_in)
+    app.include_router(nda_chat.router, prefix="/api", tags=["nda-chat"], dependencies=signed_in)
+    app.include_router(documents_router.router, prefix="/api", tags=["documents"], dependencies=signed_in)
+    app.include_router(saved_documents.router, prefix="/api", tags=["saved-documents"], dependencies=signed_in)
 
     # html=True: "/" serves index.html, and an unmatched path serves the
     # frontend's own generated 404.html (with a 404 status) if one is

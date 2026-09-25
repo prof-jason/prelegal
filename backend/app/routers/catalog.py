@@ -1,8 +1,7 @@
 """Read-only endpoint exposing the document catalog.
 
-Serves catalog.json as-is. Nothing in the frontend consumes this yet in
-issue #5 -- it exists to prove the frontend/backend wiring works and as
-foundation for the document-picker UI a future issue will build.
+Serves catalog.json as-is. The frontend lists documents via
+/api/documents instead; this remains as a raw view of the catalog.
 """
 
 from __future__ import annotations

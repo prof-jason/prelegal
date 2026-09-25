@@ -51,9 +51,11 @@ test.describe("page load", () => {
     await expect(doc.getByRole("listitem")).toHaveCount(11);
   });
 
-  test("has exactly one <h1> and a not-legal-advice notice", async ({ page }) => {
+  test("has exactly one <h1> and a draft / legal review disclaimer", async ({ page }) => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-    await expect(page.getByText(/does not provide legal advice/)).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Draft disclaimer" })).toContainText(
+      "Draft — subject to legal review.",
+    );
   });
 
   test("loads with no console errors or hydration warnings", async ({ page }) => {

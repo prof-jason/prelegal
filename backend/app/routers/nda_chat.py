@@ -1,8 +1,8 @@
 """AI chat endpoint for the Mutual NDA creator (issue #6).
 
-No auth dependency and no persistence: the fake login screen already gates
-the whole app, and conversation state lives entirely client-side (matching
-the existing form state, which also isn't persisted across a refresh).
+Stateless: the client resends the whole transcript every turn, and saves
+its progress separately (see app.routers.saved_documents). Requires a
+signed-in user, like every non-auth route (enforced in app.main).
 """
 
 from __future__ import annotations

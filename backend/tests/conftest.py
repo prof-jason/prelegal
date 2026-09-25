@@ -43,9 +43,16 @@ def configure_env(
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
 
 
+def sign_up(client: TestClient, email: str, password: str = "hunter22") -> dict[str, str]:
+    """Register and log in a user; returns their Authorization header."""
+    client.post("/api/auth/signup", json={"email": email, "password": password})
+    login = client.post("/api/auth/login", json={"email": email, "password": password})
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+
 @pytest.fixture()
-def client(configure_env: None):
-    """A TestClient wired to an isolated, per-test DB/static/catalog setup.
+def anon_client(configure_env: None):
+    """A signed-out TestClient wired to an isolated, per-test DB/static/catalog setup.
 
     Entering the TestClient's context triggers the app's lifespan, which
     resets the (per-test) database -- so every test starts from a clean,
@@ -55,3 +62,11 @@ def client(configure_env: None):
 
     with TestClient(create_app()) as test_client:
         yield test_client
+
+
+@pytest.fixture()
+def client(anon_client: TestClient) -> TestClient:
+    """anon_client, signed in as a fresh user: every request carries their
+    bearer token, since all non-auth API routes require one."""
+    anon_client.headers.update(sign_up(anon_client, "fixture-user@example.com"))
+    return anon_client

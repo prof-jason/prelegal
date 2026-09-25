@@ -1,32 +1,53 @@
+import { renderHook, act } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { login, logout } from "./auth";
+import { endSession, getToken, startSession, useAuthState } from "./auth";
+import { testSession } from "@/test/session";
 
-// useAuthState (the useSyncExternalStore hook) is exercised through the
-// components that consume it (AuthGate.test.tsx, LoginScreen.test.tsx);
-// this file covers the plain localStorage read/write helpers directly.
-
-describe("auth", () => {
-  it("starts logged out", () => {
-    expect(localStorage.getItem("prelegal.auth")).toBeNull();
+describe("auth session", () => {
+  it("starts signed out", () => {
+    expect(getToken()).toBeNull();
+    expect(renderHook(() => useAuthState()).result.current).toEqual({ status: "guest" });
   });
 
-  it("login() persists to localStorage", () => {
-    login();
-    expect(localStorage.getItem("prelegal.auth")).toBe("1");
+  it("startSession() persists the token and user; endSession() clears them", () => {
+    startSession(testSession());
+    expect(getToken()).toBe("test-token");
+    expect(JSON.parse(localStorage.getItem("prelegal.session")!).user.email).toBe("ada@example.com");
+
+    endSession();
+    expect(getToken()).toBeNull();
+    expect(localStorage.getItem("prelegal.session")).toBeNull();
   });
 
-  it("logout() clears localStorage", () => {
-    login();
-    logout();
-    expect(localStorage.getItem("prelegal.auth")).toBeNull();
+  it("useAuthState follows sign in and sign out", () => {
+    const { result } = renderHook(() => useAuthState());
+    act(() => startSession(testSession()));
+    expect(result.current).toEqual({ status: "authed", session: testSession() });
+    act(() => endSession());
+    expect(result.current).toEqual({ status: "guest" });
   });
 
-  it("login() dispatches an event listeners can observe", () => {
-    let fired = false;
-    window.addEventListener("prelegal-auth-changed", () => {
-      fired = true;
-    });
-    login();
-    expect(fired).toBe(true);
+  it("returns a stable state object between renders", () => {
+    startSession(testSession());
+    const { result, rerender } = renderHook(() => useAuthState());
+    const first = result.current;
+    rerender();
+    expect(result.current).toBe(first);
+  });
+
+  it.each(["not json", "{}", '{"token": 5}', '{"token": "t"}'])("treats a corrupt stored session (%s) as signed out", (raw) => {
+    localStorage.setItem("prelegal.session", raw);
+    expect(getToken()).toBeNull();
+    expect(renderHook(() => useAuthState()).result.current).toEqual({ status: "guest" });
+  });
+
+  it("signals changes with an event other listeners can observe", () => {
+    let fired = 0;
+    const listener = () => fired++;
+    window.addEventListener("prelegal-auth-changed", listener);
+    startSession(testSession());
+    endSession();
+    window.removeEventListener("prelegal-auth-changed", listener);
+    expect(fired).toBe(2);
   });
 });

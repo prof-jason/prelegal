@@ -84,4 +84,17 @@ export function partyValue(values: FieldValues, partyIndex: number, suffix: stri
   return suffix === "date" ? format(value) : value;
 }
 
+/** A saved document's title: its name, plus whichever party names are known yet. */
+export function draftTitle(name: string, parties: string[]): string {
+  const known = parties.map((p) => p.trim()).filter(Boolean);
+  return known.length ? `${name} — ${known.join(" & ")}` : name;
+}
+
+/** Who a party is, for a title: its company, else its signer's name. */
+export const partyLabel = (values: FieldValues, partyIndex: number): string =>
+  values[`party${partyIndex + 1}_company`]?.trim() || values[`party${partyIndex + 1}_name`]?.trim() || "";
+
+/** The chat's opening line when a saved draft is reopened. */
+export const RESUME_GREETING = "Welcome back! Your draft is saved — what would you like to change?";
+
 export const pdfFileName = (name: string) => `${name.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "")}.pdf`;

@@ -55,19 +55,16 @@ Note: the backend serves the frontend's static build at `/`. Without running
 `npm run build` in `frontend/` first, API routes under `/api/*` still work,
 but `/` will 404.
 
-## Current state (issue #5: V1 technical foundation)
+## Current state
 
-- The login screen is **fake**: any email/password submitted signs you
-  straight into the app, and the session is remembered via `localStorage`
-  until you log out. No real authentication is wired up yet.
-- The backend does have real, tested `POST /api/auth/signup` and
-  `POST /api/auth/login` endpoints backed by a SQLite `users` table — the
-  frontend just doesn't call them yet. That's intentionally deferred to a
-  future issue.
-- `GET /api/catalog` serves `catalog.json`, proving the frontend/backend
-  wiring works end-to-end, but no UI consumes it yet.
-- Product features are otherwise unchanged from the existing prototype (the
-  Mutual NDA creator).
+- Sign up / sign in with an email and password. Every document you work on
+  is autosaved to your account; **My documents** lists your drafts to reopen
+  or delete.
+- Every catalog document can be drafted by chatting with the AI assistant
+  (or editing fields directly), with a live preview and PDF download. Each
+  document is marked as a draft, subject to legal review.
+- The SQLite database (users and saved documents) is recreated empty every
+  time the server starts, so accounts and drafts don't survive a restart.
 
 ## API reference
 
@@ -78,14 +75,27 @@ but `/` will 404.
   registered
 - `POST /api/auth/login` → `{"email": ..., "password": ...}` → `200` with a
   bearer token and the user, or `401` on invalid credentials
-- `GET /api/auth/me` (requires `Authorization: Bearer <token>`) → the current
-  user
+- `GET /api/auth/me` → the current user
+
+Every other route below requires `Authorization: Bearer <token>` (`401`
+otherwise):
+
+- `GET /api/documents`, `GET /api/documents/{id}`, `POST /api/intake/chat`,
+  `POST /api/documents/{id}/chat`, `POST /api/nda/chat` — document types and
+  the AI chats
+- `GET /api/saved-documents` → your drafts, most recently edited first
+- `GET /api/saved-documents/{uuid}` → one draft (transcript + fields)
+- `PUT /api/saved-documents/{uuid}` → `{document_id, title, transcript,
+  fields}` creates or replaces a draft (the client picks the UUID)
+- `DELETE /api/saved-documents/{uuid}` → `204`
+
+Another user's draft always behaves as `404`.
 
 ## Environment variables
 
 Set in the root `.env` file (see `.gitignore` — this file is not committed):
 
-- `OPENROUTER_API_KEY` — used by future AI-chat work (not yet wired up).
+- `OPENROUTER_API_KEY` — used by the AI chat (LiteLLM → OpenRouter).
 
 The backend also reads these (all have sane defaults for local dev/Docker):
 

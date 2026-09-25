@@ -8,6 +8,9 @@ type Bubble = { id: string; role: "user" | "assistant"; content: string; failed?
 
 const GREETING_ID = "greeting";
 
+const toApiTurns = (list: Bubble[]): ChatTurn[] =>
+  list.filter((b) => b.id !== GREETING_ID).map((b) => ({ role: b.role, content: b.content }));
+
 let bubbleCounter = 0;
 const nextId = () => `b${++bubbleCounter}`;
 
@@ -21,12 +24,20 @@ type Props = {
    * reply. Any other result handling (applying field updates, switching
    * documents) happens inside it, before the reply is shown. */
   onSend: (messages: ChatTurn[]) => Promise<string>;
+  /** Called with the conversation (as sent to the backend) whenever it changes, e.g. to save it. */
+  onTurnsChange?: (turns: ChatTurn[]) => void;
   label?: string;
 };
 
 /** The chat UI shared by every assistant: transcript, composer, and a
  * retry flow that resends the same conversation after an error. */
-export default function ChatPanel({ greeting, initialTurns = [], onSend, label = "Chat with the assistant" }: Props) {
+export default function ChatPanel({
+  greeting,
+  initialTurns = [],
+  onSend,
+  onTurnsChange,
+  label = "Chat with the assistant",
+}: Props) {
   const [bubbles, setBubbles] = useState<Bubble[]>(() => [
     ...initialTurns.map((t) => ({ id: nextId(), ...t })),
     { id: GREETING_ID, role: "assistant", content: greeting },
@@ -43,8 +54,12 @@ export default function ChatPanel({ greeting, initialTurns = [], onSend, label =
     if (log) log.scrollTop = log.scrollHeight;
   }, [bubbles, sending]);
 
-  const toApiTurns = (list: Bubble[]): ChatTurn[] =>
-    list.filter((b) => b.id !== GREETING_ID).map((b) => ({ role: b.role, content: b.content }));
+  // The callback is typically an inline closure; only a changed conversation should report.
+  const onTurnsChangeRef = useRef(onTurnsChange);
+  useEffect(() => {
+    onTurnsChangeRef.current = onTurnsChange;
+  });
+  useEffect(() => onTurnsChangeRef.current?.(toApiTurns(bubbles)), [bubbles]);
 
   const runTurn = async (history: Bubble[]) => {
     setSending(true);

@@ -13,9 +13,11 @@ type Props = {
    * "just updated" highlight (see NdaFieldSummary). */
   onApplyPatch: (patch: NdaFieldsPatch, updatedFieldNames: string[]) => void;
   initialTurns?: ChatTurn[];
+  onTurnsChange?: (turns: ChatTurn[]) => void;
+  greeting?: string;
 };
 
-export default function NdaChatPanel({ form, onApplyPatch, initialTurns }: Props) {
+export default function NdaChatPanel({ form, onApplyPatch, initialTurns, onTurnsChange, greeting = GREETING }: Props) {
   const send = async (messages: ChatTurn[]) => {
     // `form` satisfies NdaFieldsPatch structurally (every NdaForm field is a
     // stricter, non-optional version of the corresponding patch field), so
@@ -24,5 +26,5 @@ export default function NdaChatPanel({ form, onApplyPatch, initialTurns }: Props
     onApplyPatch(result.updates, result.updatedFieldNames);
     return result.reply;
   };
-  return <ChatPanel greeting={GREETING} initialTurns={initialTurns} onSend={send} />;
+  return <ChatPanel greeting={greeting} initialTurns={initialTurns} onSend={send} onTurnsChange={onTurnsChange} />;
 }

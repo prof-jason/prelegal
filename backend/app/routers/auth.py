@@ -1,10 +1,8 @@
 """Signup / login / me endpoints.
 
-Real, tested auth endpoints backed by the SQLite `users` table -- but
-nothing in the frontend calls them yet. Issue #5 ("build the V1 technical
-foundation") uses only a fake, unauthenticated login screen; these
-endpoints exist so wiring up real auth in a future issue is an additive
-frontend change, not a backend redesign.
+Backed by the SQLite `users` table. The frontend's sign-in screen calls
+signup then login, keeps the bearer token, and sends it with every other
+API request.
 """
 
 from __future__ import annotations

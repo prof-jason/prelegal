@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, field_validator
 
@@ -171,3 +172,54 @@ class IntakeChatResponse(BaseModel):
     reply: str
     # Set once the user has picked a document; null means keep chatting.
     document_id: str | None = None
+
+
+# Saved documents persist (until restart), so cap what one save can store.
+MAX_SAVED_TURNS = 200
+MAX_SAVED_TURN_CHARS = 10_000
+MAX_SAVED_FIELDS_BYTES = 100_000
+
+
+class SavedDocumentUpsert(BaseModel):
+    document_id: str  # a catalog document id, e.g. "mutual-nda" or "sla"
+    title: str
+    transcript: list[ChatTurn] = []
+    # Opaque to the backend: stored and returned exactly as the client sent it.
+    fields: dict[str, Any] = {}
+
+    @field_validator("title")
+    @classmethod
+    def _non_blank_title(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Title must not be blank")
+        return value[:200]
+
+    @field_validator("transcript")
+    @classmethod
+    def _bounded_transcript(cls, value: list[ChatTurn]) -> list[ChatTurn]:
+        if len(value) > MAX_SAVED_TURNS:
+            raise ValueError(f"A saved chat can have at most {MAX_SAVED_TURNS} messages")
+        if any(len(turn.content) > MAX_SAVED_TURN_CHARS for turn in value):
+            raise ValueError(f"A saved chat message can be at most {MAX_SAVED_TURN_CHARS} characters")
+        return value
+
+    @field_validator("fields")
+    @classmethod
+    def _bounded_fields(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if len(json.dumps(value).encode()) > MAX_SAVED_FIELDS_BYTES:
+            raise ValueError(f"Saved fields can be at most {MAX_SAVED_FIELDS_BYTES} bytes")
+        return value
+
+
+class SavedDocumentSummary(BaseModel):
+    id: str
+    document_id: str
+    title: str
+    created_at: str
+    updated_at: str
+
+
+class SavedDocumentDetail(SavedDocumentSummary):
+    transcript: list[ChatTurn]
+    fields: dict[str, Any]
