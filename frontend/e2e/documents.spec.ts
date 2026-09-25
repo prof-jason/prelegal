@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { pdfPages } from "../src/test/pdfText";
 import sla from "./fixtures/sla-document.json" with { type: "json" };
-import { mockDocumentList, skipLogin } from "./helpers";
+import { mockDocumentList, signIn } from "./helpers";
 
 type Reply = Record<string, unknown>;
 
@@ -17,7 +17,7 @@ async function mockChat(page: Page, path: string, replies: Reply[]) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await skipLogin(page);
+  await signIn(page);
   await mockDocumentList(page);
   await page.route("**/api/documents/sla", (route) => route.fulfill({ json: sla }));
   await page.goto("/");

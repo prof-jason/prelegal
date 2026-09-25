@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DocumentCreator from "./DocumentCreator";
@@ -10,12 +10,14 @@ vi.mock("@/lib/documentPdf", () => ({ buildDocumentPdf: (...a: unknown[]) => bui
 
 const fetchDocument = vi.fn();
 const sendDocumentChatMessage = vi.fn();
+const saveDocument = vi.fn();
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
   return {
     ...actual,
     fetchDocument: (...a: unknown[]) => fetchDocument(...a),
     sendDocumentChatMessage: (...a: unknown[]) => sendDocumentChatMessage(...a),
+    saveDocument: (...a: unknown[]) => saveDocument(...a),
   };
 });
 
@@ -28,6 +30,7 @@ const renderCreator = async (initialTurns?: { role: "user" | "assistant"; conten
 beforeEach(() => {
   fetchDocument.mockReset().mockResolvedValue(slaDetail());
   sendDocumentChatMessage.mockReset();
+  saveDocument.mockReset().mockResolvedValue({});
   buildDocumentPdf.mockReset().mockResolvedValue(new Blob(["%PDF-1.3"], { type: "application/pdf" }));
   onChangeDocument.mockReset();
   URL.createObjectURL = vi.fn(() => "blob:mock");
@@ -121,5 +124,46 @@ describe("DocumentCreator", () => {
     await renderCreator();
     await user.click(screen.getByRole("button", { name: "Change document" }));
     expect(onChangeDocument).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("DocumentCreator: saving", () => {
+  it("autosaves edits as a draft of this document, titled by its parties", async () => {
+    const user = userEvent.setup();
+    await renderCreator();
+    await user.type(within(screen.getByRole("group", { name: "Customer" })).getByLabelText("Company name"), "Globex");
+
+    await waitFor(() => expect(saveDocument).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    const [id, content] = saveDocument.mock.calls[0];
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(content).toMatchObject({ documentId: "sla", title: "Service Level Agreement — Globex" });
+    expect(content.fields.party2_company).toBe("Globex");
+  });
+
+  it("reopens a saved draft with its values and chat, and saves back to the same id", async () => {
+    const user = userEvent.setup();
+    render(
+      <DocumentCreator
+        documentId="sla"
+        initialTurns={[{ role: "user", content: "An SLA for Globex" }]}
+        saved={{ id: "22222222-2222-4222-8222-222222222222", fields: { target_uptime: "99.95%" } }}
+        onChangeDocument={onChangeDocument}
+      />,
+    );
+    expect(await screen.findByLabelText("Target Uptime")).toHaveValue("99.95%");
+    expect(screen.getByText("An SLA for Globex")).toBeInTheDocument();
+    expect(screen.getByText(/Welcome back! Your draft is saved/)).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Target Uptime"), "0");
+    await waitFor(() => expect(saveDocument).toHaveBeenCalled(), { timeout: 3000 });
+    expect(saveDocument.mock.calls[0][0]).toBe("22222222-2222-4222-8222-222222222222");
+    expect(saveDocument.mock.calls[0][1].fields.target_uptime).toBe("99.95%0");
+  });
+
+  it("shows the draft / legal review disclaimer banner", async () => {
+    await renderCreator();
+    expect(screen.getByRole("complementary", { name: "Draft disclaimer" })).toHaveTextContent(
+      "Draft — subject to legal review.",
+    );
   });
 });

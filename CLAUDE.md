@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The current implementation supports every catalog document via AI chat (see Progress below): the Mutual NDA through its bespoke creator, and the other 10 through a template-driven engine. Login is currently a fake, unauthenticated placeholder — real signup/login/me endpoints exist on the backend but the frontend doesn't call them yet — and there is no document persistence yet (chat/form state is client-side only, lost on refresh).
+The current implementation supports every catalog document via AI chat (see Progress below): the Mutual NDA through its bespoke creator, and the other 10 through a template-driven engine. Users sign up and sign in for real (JWT bearer tokens), and every document they work on is autosaved to their account and listed under "My documents" to reopen later. The database — users and saved documents — is recreated empty every time the server starts.
 
 ## Development process
 
@@ -89,6 +89,22 @@ Backend available at http://localhost:8000
   plus standard terms, both as a live preview and as a PDF. Templates are
   loaded and validated at startup, and the Dockerfile now ships
   `templates/`.
-- **Not started yet**: wiring the fake login screen to the real auth
-  endpoints; any document persistence.
+- **Issue #8** — Multiple users & final polish. The sign-in/sign-up
+  screen calls the real auth endpoints (sign-up signs straight in); the
+  session (token + user) lives in localStorage (`lib/auth.ts`),
+  `lib/api.ts` sends it as a bearer token and ends the session on any 401
+  (e.g. after a restart wipes the user). Every `/api` route except
+  signup/login/health requires a signed-in user, enforced per router in
+  `app/main.py`. New `saved_documents` table + `app/saved_documents.py` +
+  `GET/PUT/DELETE /api/saved-documents[/{uuid}]`: the client generates each
+  draft's UUID so autosave is an idempotent, ownership-checked PUT upsert;
+  transcript and fields are stored as opaque JSON (size-capped).
+  `useAutosave` (`lib/hooks.ts`) debounces saves, saves on unmount, and
+  only starts once the user changes something; `ChatPanel` reports its
+  transcript via `onTurnsChange`. New `AppShell` (nav, user, sign out),
+  `MyDocuments` (reopen/delete), and `WorkspaceHeader` (save status +
+  "Draft — subject to legal review" banner) shared by both creators;
+  every screen restyled with shared design tokens in `globals.css`.
+  `db.get_connection` uses `check_same_thread=False` since FastAPI may use a
+  request's connection from more than one threadpool thread.
 

@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { openNda, skipLogin } from "./helpers";
+import { openNda, signIn } from "./helpers";
 
 test.describe("AI chat panel", () => {
   test("the start screen greets without contacting a chat backend", async ({ page }) => {
-    await skipLogin(page);
+    await signIn(page);
     await page.goto("/");
     await expect(page.getByText(/What are you working on\?/)).toBeVisible();
   });
@@ -11,7 +11,7 @@ test.describe("AI chat panel", () => {
   test("with no backend at all, the start screen degrades to retryable errors, not a crash", async ({ page }) => {
     // This suite's webServer only serves the static frontend (see
     // playwright.config.ts), so with nothing mocked every API call fails.
-    await skipLogin(page);
+    await signIn(page);
     await page.goto("/");
     await expect(page.getByText(/Couldn't load the document list/)).toBeVisible();
     await page.getByLabel("Message").fill("Hello");

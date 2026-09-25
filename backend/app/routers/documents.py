@@ -3,7 +3,7 @@ the intake chat that picks a document, and the fill-in chat for any
 template-driven document. The Mutual NDA keeps its own /api/nda/chat.
 
 Stateless like /api/nda/chat: the client resends the whole transcript (and
-current field values) every turn.
+current field values) every turn. Requires a signed-in user (see app.main).
 """
 
 from __future__ import annotations

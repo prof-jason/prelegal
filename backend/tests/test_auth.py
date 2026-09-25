@@ -69,13 +69,13 @@ def test_login_unknown_email_rejected_with_same_message(client):
     assert response.json()["detail"] == "Invalid email or password"
 
 
-def test_me_requires_token(client):
-    response = client.get("/api/auth/me")
+def test_me_requires_token(anon_client):
+    response = anon_client.get("/api/auth/me")
     assert response.status_code == 401
 
 
-def test_me_rejects_garbage_token(client):
-    response = client.get(
+def test_me_rejects_garbage_token(anon_client):
+    response = anon_client.get(
         "/api/auth/me", headers={"Authorization": "Bearer not-a-real-token"}
     )
     assert response.status_code == 401

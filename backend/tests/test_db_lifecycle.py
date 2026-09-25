@@ -41,5 +41,5 @@ def test_database_recreated_even_if_file_is_pre_existing_garbage(
     db_file.write_bytes(b"not a real sqlite file")
 
     with TestClient(create_app()) as client:
-        response = client.get("/api/catalog")
+        response = client.get("/api/health")
         assert response.status_code == 200

@@ -1,11 +1,38 @@
 :root {
+  /* Brand palette (see CLAUDE.md). */
   --color-accent-yellow: #ecad0a;
   --color-blue-primary: #209dd7;
   --color-purple-secondary: #753991;
   --color-dark-navy: #032147;
   --color-gray-text: #888888;
+
+  /* Neutrals and surfaces shared by every screen. */
+  --color-bg: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-border: #e1e6ef;
+  --color-border-strong: #c9d1de;
+  --color-text: #1b2533;
+  --color-text-muted: #5b6678;
+  --color-danger: #b42318;
+  --color-danger-bg: #fef3f2;
+  --color-danger-border: #fecdca;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(3, 33, 71, 0.06);
+  --shadow: 0 1px 3px rgba(3, 33, 71, 0.08), 0 4px 16px rgba(3, 33, 71, 0.06);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--color-blue-primary) 35%, transparent);
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
-body { font-family: var(--font-geist-sans), system-ui, sans-serif; background: #f3f4f6; color: #111; }
+body {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { color: var(--color-dark-navy); letter-spacing: -0.01em; }
+button { font: inherit; }
+:focus-visible { outline: none; box-shadow: var(--focus-ring); }

@@ -25,6 +25,16 @@
 - **`e2e/documents.spec.ts`** – start screen and a full SLA flow in Chrome with the API mocked from
   `e2e/fixtures/*.json`. Those fixtures are captured from the real backend, and `backend/tests/test_e2e_fixtures.py`
   fails if they drift.
+- **`src/lib/auth.test.ts`, `src/lib/api.test.ts`, `src/components/LoginScreen.test.tsx`, `AuthGate.test.tsx`** –
+  the session store, bearer token on every request, a 401 ending the session, sign in / sign up (validation, server
+  errors, sign-up signing straight in).
+- **`src/components/{NdaCreator,DocumentCreator}.test.tsx` ("saving"), `MyDocuments.test.tsx`, `src/app/page.test.tsx`**
+  – autosave (debounced, one id per draft, nothing saved until a change, failure + retry, saved on unmount and before
+  sign out), reopening a draft with its fields and chat, My documents (open, delete with confirmation, empty state),
+  the app shell's navigation.
+- **`e2e/login.spec.ts`, `e2e/saved-documents.spec.ts`** – sign up / sign in / sign out / a stale session against
+  mocked auth endpoints; autosave requests and reopening a draft from My documents. `e2e/helpers.ts`'s `signIn` starts
+  other specs signed in and accepts their autosaves.
 - **`e2e/nda.spec.ts`** – full flows in Chrome: fill every field, live preview, PDF download contents, mobile/tablet
   overflow, console cleanliness (no hydration warnings), keyboard use, control labelling.
 
@@ -73,7 +83,8 @@ Run `npm run build && npx next start` and open http://localhost:3000 in Chrome. 
   would remove the limitation.
 - Clause 9 says "the laws of the State of …", so "governing law" must be a US state name (the field says so). This is the
   Common Paper template's wording.
-- The tool shows a not-legal-advice notice but does no legal validation of the entries.
+- The tool marks every document as a draft subject to legal review but does no legal validation of the entries.
+- Accounts and saved drafts live in SQLite that is recreated on every server start (by design, for now).
 - Template-driven documents show each variable in the standard terms as its defined term (underlined once it has a
   value, `[Term]` until then), with the values on the generated cover page, rather than splicing free-text values
   into the legal prose.

@@ -20,8 +20,9 @@ def get_current_user(
 ) -> UserPublic:
     """Resolve the bearer token to a user, or raise 401.
 
-    Nothing calls this yet (the frontend login is fake), but it's the
-    dependency a future protected route reuses once real auth is wired up.
+    Guards every non-auth router (see app.main); FastAPI caches it per
+    request, so a route that also takes the user as a parameter still only
+    resolves it once.
     """
     if credentials is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")

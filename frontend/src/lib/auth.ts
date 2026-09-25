@@ -1,43 +1,55 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
-// This is a FAKE login: no credentials are checked and no request is made
-// to the backend's real (already-built, but not-yet-wired-up) /api/auth
-// endpoints. It exists only to gate the "platform" behind a login-shaped
-// screen, per issue #5. Swapping this out for the real flow later only
-// touches this file and LoginScreen.
-const STORAGE_KEY = "prelegal.auth";
+/** The signed-in user, as returned by POST /api/auth/login. */
+export type SessionUser = { id: number; email: string; created_at: string };
+export type Session = { token: string; user: SessionUser };
+
+// The session lives in localStorage so it survives a reload. The backend's
+// database is wiped on every restart, so a stored token can outlive its
+// user: lib/api.ts ends the session on any 401, which returns the app to the
+// sign-in screen.
+const STORAGE_KEY = "prelegal.session";
 const AUTH_EVENT = "prelegal-auth-changed";
 
-function readStoredAuth(): boolean {
+function readRaw(): string | null {
   try {
-    return localStorage.getItem(STORAGE_KEY) === "1";
+    return localStorage.getItem(STORAGE_KEY);
   } catch {
     // localStorage can throw (private browsing, blocked storage, etc).
-    // Fail "logged out" rather than crash the app.
-    return false;
+    // Fail "signed out" rather than crash the app.
+    return null;
   }
 }
 
-export function login(): void {
+function parseSession(raw: string | null): Session | null {
+  if (!raw) return null;
   try {
-    localStorage.setItem(STORAGE_KEY, "1");
+    const session = JSON.parse(raw);
+    return typeof session?.token === "string" && typeof session?.user?.email === "string" ? session : null;
   } catch {
-    // Nothing to do if storage is unavailable; the in-memory event still
-    // fires so the UI updates for this session.
+    return null;
+  }
+}
+
+function writeRaw(value: string | null): void {
+  try {
+    if (value === null) localStorage.removeItem(STORAGE_KEY);
+    else localStorage.setItem(STORAGE_KEY, value);
+  } catch {
+    // Nothing to do if storage is unavailable; the event below still fires,
+    // but the session can't be kept.
   }
   window.dispatchEvent(new Event(AUTH_EVENT));
 }
 
-export function logout(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // See login(): storage failures shouldn't crash the app.
-  }
-  window.dispatchEvent(new Event(AUTH_EVENT));
-}
+export const startSession = (session: Session): void => writeRaw(JSON.stringify(session));
+
+export const endSession = (): void => writeRaw(null);
+
+/** The current bearer token, if signed in. */
+export const getToken = (): string | null => parseSession(readRaw())?.token ?? null;
 
 function subscribe(callback: () => void): () => void {
   window.addEventListener(AUTH_EVENT, callback);
@@ -48,17 +60,19 @@ function subscribe(callback: () => void): () => void {
   };
 }
 
-export type AuthState = "unknown" | "guest" | "authed";
+export type AuthState = { status: "unknown" } | { status: "guest" } | { status: "authed"; session: Session };
 
 /**
  * "unknown" only ever describes the server-rendered snapshot (matches the
  * prerendered static HTML so hydration doesn't mismatch); on the client it
- * immediately resolves to "guest" or "authed" based on localStorage.
+ * immediately resolves to "guest" or "authed" from localStorage.
  */
 export function useAuthState(): AuthState {
-  return useSyncExternalStore(
-    subscribe,
-    () => (readStoredAuth() ? "authed" : "guest"),
-    () => "unknown",
-  );
+  // Snapshot the raw string (stable between reads), and parse it separately.
+  const raw = useSyncExternalStore(subscribe, readRaw, () => undefined);
+  return useMemo(() => {
+    if (raw === undefined) return { status: "unknown" };
+    const session = parseSession(raw);
+    return session ? { status: "authed", session } : { status: "guest" };
+  }, [raw]);
 }

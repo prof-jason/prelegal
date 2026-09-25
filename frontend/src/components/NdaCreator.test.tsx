@@ -2,16 +2,24 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import NdaCreator from "./NdaCreator";
-import { today } from "@/lib/nda";
+import { defaultForm, today } from "@/lib/nda";
 
 const buildNdaPdf = vi.fn();
 vi.mock("@/lib/ndaPdf", () => ({ buildNdaPdf: (...a: unknown[]) => buildNdaPdf(...a) }));
 
 const sendChatMessage = vi.fn();
+const saveDocument = vi.fn();
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
-  return { ...actual, sendChatMessage: (...args: unknown[]) => sendChatMessage(...args) };
+  return {
+    ...actual,
+    sendChatMessage: (...args: unknown[]) => sendChatMessage(...args),
+    saveDocument: (...args: unknown[]) => saveDocument(...args),
+  };
 });
+
+/** Autosave is debounced; allow for it. */
+const SAVE_WAIT = { timeout: 3000 };
 
 const doc = () => screen.getByRole("article");
 const onChangeDocument = vi.fn();
@@ -20,6 +28,7 @@ beforeEach(() => {
   buildNdaPdf.mockReset();
   buildNdaPdf.mockResolvedValue(new Blob(["%PDF-1.3"], { type: "application/pdf" }));
   sendChatMessage.mockReset();
+  saveDocument.mockReset().mockResolvedValue({});
   onChangeDocument.mockReset();
   URL.createObjectURL = vi.fn(() => "blob:mock");
   URL.revokeObjectURL = vi.fn();
@@ -47,9 +56,11 @@ describe("NdaCreator", () => {
     }
   });
 
-  it("shows a not-legal-advice notice", () => {
+  it("shows the draft / legal review disclaimer banner", () => {
     render(<NdaCreator onChangeDocument={onChangeDocument} />);
-    expect(screen.getByText(/does not provide legal\s+advice/)).toBeInTheDocument();
+    const banner = screen.getByRole("complementary", { name: "Draft disclaimer" });
+    expect(banner).toHaveTextContent("Draft — subject to legal review.");
+    expect(banner).toHaveTextContent(/Mutual NDA v1\.0/);
   });
 
   it("warns about empty governing law / jurisdiction, and clears the warning once filled", async () => {
@@ -230,5 +241,95 @@ describe("NdaCreator", () => {
       await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
       expect(screen.queryByRole("alert")).toBeNull();
     });
+  });
+});
+
+describe("NdaCreator: saving", () => {
+  it("doesn't save a document that was only opened", async () => {
+    render(<NdaCreator onChangeDocument={onChangeDocument} initialTurns={[{ role: "user", content: "An NDA" }]} />);
+    await new Promise((r) => setTimeout(r, 1200));
+    expect(saveDocument).not.toHaveBeenCalled();
+    expect(screen.getByText("Saves automatically as you work")).toBeInTheDocument();
+  });
+
+  it("autosaves edits (debounced) under one id, titled by the parties", async () => {
+    const user = userEvent.setup();
+    render(<NdaCreator onChangeDocument={onChangeDocument} />);
+    const p1 = screen.getByRole("group", { name: "Party 1" });
+    await user.type(within(p1).getByLabelText("Company"), "Acme");
+
+    await waitFor(() => expect(saveDocument).toHaveBeenCalledTimes(1), SAVE_WAIT);
+    const [id, content] = saveDocument.mock.calls[0];
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(content).toMatchObject({ documentId: "mutual-nda", title: "Mutual NDA — Acme", transcript: [] });
+    expect(content.fields.party1.company).toBe("Acme");
+    expect(await screen.findByText("All changes saved")).toBeInTheDocument();
+
+    await user.type(within(screen.getByRole("group", { name: "Party 2" })).getByLabelText("Company"), "Globex");
+    await waitFor(() => expect(saveDocument).toHaveBeenCalledTimes(2), SAVE_WAIT);
+    expect(saveDocument.mock.calls[1][0]).toBe(id);
+    expect(saveDocument.mock.calls[1][1].title).toBe("Mutual NDA — Acme & Globex");
+  });
+
+  it("saves the chat transcript after each turn", async () => {
+    sendChatMessage.mockResolvedValue({ reply: "Noted.", updates: {}, updatedFieldNames: [] });
+    const user = userEvent.setup();
+    render(<NdaCreator onChangeDocument={onChangeDocument} />);
+    await user.type(screen.getByLabelText("Message"), "Hello");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(saveDocument).toHaveBeenCalled(), SAVE_WAIT);
+    // An untouched effective date is saved as null ("today"), not frozen to the day it was drafted.
+    expect(saveDocument.mock.lastCall![1].fields.effectiveDate).toBeNull();
+    expect(saveDocument.mock.lastCall![1].transcript).toEqual([
+      { role: "user", content: "Hello" },
+      { role: "assistant", content: "Noted." },
+    ]);
+  });
+
+  it("reports a failed save and retries on request", async () => {
+    saveDocument.mockRejectedValueOnce(new Error("offline")).mockResolvedValue({});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const user = userEvent.setup();
+    render(<NdaCreator onChangeDocument={onChangeDocument} />);
+    await user.type(screen.getByLabelText(/Governing law/), "Delaware");
+
+    expect(await screen.findByText("Couldn't save your latest changes", {}, SAVE_WAIT)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("All changes saved", {}, SAVE_WAIT)).toBeInTheDocument();
+    expect(saveDocument).toHaveBeenCalledTimes(2);
+  });
+
+  it("saves a pending change when closed mid-debounce", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<NdaCreator onChangeDocument={onChangeDocument} />);
+    await user.type(screen.getByLabelText(/Governing law/), "Ohio");
+    unmount();
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument.mock.calls[0][1].fields.governingLaw).toBe("Ohio");
+  });
+
+  it("reopens a saved draft: restores fields and chat, and keeps saving to the same id", async () => {
+    const savedForm = { ...defaultForm(), purpose: "Evaluating a merger", party1: { ...defaultForm().party1, company: "Acme" } };
+    const user = userEvent.setup();
+    render(
+      <NdaCreator
+        onChangeDocument={onChangeDocument}
+        initialTurns={[
+          { role: "user", content: "NDA with Acme" },
+          { role: "assistant", content: "Sure — what's it for?" },
+        ]}
+        saved={{ id: "11111111-1111-4111-8111-111111111111", fields: savedForm }}
+      />,
+    );
+    expect(screen.getByLabelText(/^Purpose/)).toHaveValue("Evaluating a merger");
+    expect(screen.getByText("NDA with Acme")).toBeInTheDocument();
+    expect(screen.getByText(/Welcome back! Your draft is saved/)).toBeInTheDocument();
+    expect(screen.getByText("All changes saved")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/Governing law/), "Utah");
+    await waitFor(() => expect(saveDocument).toHaveBeenCalled(), SAVE_WAIT);
+    expect(saveDocument.mock.calls[0][0]).toBe("11111111-1111-4111-8111-111111111111");
+    expect(saveDocument.mock.calls[0][1].transcript).toHaveLength(2);
   });
 });

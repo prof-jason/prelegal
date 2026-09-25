@@ -4,18 +4,22 @@ import { useMemo, useState } from "react";
 import ChatPanel from "@/components/ChatPanel";
 import DocumentFieldSummary from "@/components/DocumentFieldSummary";
 import DocumentPreview from "@/components/DocumentPreview";
-import { fetchDocument, sendDocumentChatMessage, type ChatTurn } from "@/lib/api";
+import WorkspaceHeader from "@/components/WorkspaceHeader";
+import { fetchDocument, sendDocumentChatMessage, type ChatTurn, type SavedFields } from "@/lib/api";
 import {
+  draftTitle,
   emptyTermLabels,
   emptyValues,
   mergeUpdates,
+  partyLabel,
   pdfFileName,
+  RESUME_GREETING,
   summarizeList,
   unsupportedDocumentPdfChars,
   type DocumentDetail,
   type FieldValues,
 } from "@/lib/document";
-import { useFieldHighlight, usePdfDownload, useRetryableFetch } from "@/lib/hooks";
+import { useAutosave, useFieldHighlight, usePdfDownload, useRetryableFetch } from "@/lib/hooks";
 import { parseTemplate } from "@/lib/template";
 import styles from "./Workspace.module.css";
 
@@ -23,11 +27,13 @@ type Props = {
   documentId: string;
   /** The document-picking conversation so far, continued in this document's chat. */
   initialTurns?: ChatTurn[];
+  /** A saved draft being reopened: autosaves continue to it. */
+  saved?: { id: string; fields: SavedFields };
   onChangeDocument: () => void;
 };
 
 /** Loads a template-driven document, then shows its chat, editable fields and live preview. */
-export default function DocumentCreator({ documentId, initialTurns, onChangeDocument }: Props) {
+export default function DocumentCreator({ documentId, initialTurns, saved, onChangeDocument }: Props) {
   const { data: detail, error: loadError, retry } = useRetryableFetch(() => fetchDocument(documentId));
 
   if (!detail) {
@@ -49,20 +55,38 @@ export default function DocumentCreator({ documentId, initialTurns, onChangeDocu
       </main>
     );
   }
-  return <LoadedDocumentCreator detail={detail} initialTurns={initialTurns} onChangeDocument={onChangeDocument} />;
+  return (
+    <LoadedDocumentCreator detail={detail} initialTurns={initialTurns} saved={saved} onChangeDocument={onChangeDocument} />
+  );
 }
 
 function LoadedDocumentCreator({
   detail,
-  initialTurns,
+  initialTurns = [],
+  saved,
   onChangeDocument,
 }: { detail: DocumentDetail } & Omit<Props, "documentId">) {
   const template = useMemo(() => parseTemplate(detail.markdown), [detail.markdown]);
-  const [values, setValues] = useState<FieldValues>(() => emptyValues(detail));
+  const [values, setValues] = useState<FieldValues>(() => ({
+    ...emptyValues(detail),
+    ...(saved?.fields as FieldValues | undefined),
+  }));
+  const [transcript, setTranscript] = useState(initialTurns);
   const { highlighted, flash } = useFieldHighlight();
+  const autosave = useAutosave(
+    {
+      documentId: detail.id,
+      title: draftTitle(detail.name, [partyLabel(values, 0), partyLabel(values, 1)]),
+      transcript,
+      fields: values,
+    },
+    saved?.id,
+  );
 
   const [role1, role2] = detail.parties.map((p) => p.role);
-  const greeting = initialTurns?.length
+  const greeting = saved
+    ? RESUME_GREETING
+    : initialTurns.length
     ? `Let's put together your ${detail.name}. I'll use what you've told me so far — anything to add about the parties (the ${role1} and the ${role2}) or the deal?`
     : `Let's put together your ${detail.name}. To start, who are the two parties — the ${role1} and the ${role2}?`;
 
@@ -83,24 +107,13 @@ function LoadedDocumentCreator({
 
   return (
     <main className={styles.main}>
-      <header className={styles.header}>
-        <div>
-          <h1>{detail.name}</h1>
-          <p>Chat with the assistant to fill in the details, or edit any field directly, and watch your agreement update live.</p>
-        </div>
-        <div className={styles.actions}>
-          <button type="button" className={styles.secondary} onClick={onChangeDocument}>
-            Change document
-          </button>
-          <button onClick={download} disabled={busy} aria-busy={busy}>
-            {busy ? "Generating…" : "Download PDF"}
-          </button>
-        </div>
-      </header>
-      <p className={styles.disclaimer}>
-        This tool fills in a standard template agreement (Common Paper {template.title}). It does not provide legal
-        advice — have a qualified attorney review any agreement before you sign it.
-      </p>
+      <WorkspaceHeader
+        title={detail.name}
+        templateName={template.title}
+        save={autosave}
+        pdf={{ busy, download }}
+        onChangeDocument={onChangeDocument}
+      />
       {(empty.length > 0 || badChars.length > 0) && (
         <div role="status" className={styles.notice}>
           {empty.length > 0 && (
@@ -123,7 +136,7 @@ function LoadedDocumentCreator({
       )}
       <div className={styles.layout}>
         <section className={styles.formCol} aria-label="Agreement details">
-          <ChatPanel greeting={greeting} initialTurns={initialTurns} onSend={send} />
+          <ChatPanel greeting={greeting} initialTurns={initialTurns} onSend={send} onTurnsChange={setTranscript} />
           <DocumentFieldSummary detail={detail} values={values} onChange={setValues} highlightedFields={highlighted} />
         </section>
         <section className={styles.previewCol} aria-label="Agreement preview">

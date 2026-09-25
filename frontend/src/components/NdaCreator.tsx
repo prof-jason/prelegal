@@ -4,9 +4,19 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import NdaChatPanel from "@/components/NdaChatPanel";
 import NdaDocument from "@/components/NdaDocument";
 import NdaFieldSummary from "@/components/NdaFieldSummary";
-import { defaultForm, mergeNdaFieldsPatch, today, unsupportedPdfChars, type NdaFieldsPatch } from "@/lib/nda";
-import type { ChatTurn } from "@/lib/api";
-import { useFieldHighlight, usePdfDownload } from "@/lib/hooks";
+import WorkspaceHeader from "@/components/WorkspaceHeader";
+import {
+  defaultForm,
+  mergeNdaFieldsPatch,
+  today,
+  unsupportedPdfChars,
+  type NdaFieldsPatch,
+  type NdaForm,
+  type Party,
+} from "@/lib/nda";
+import type { ChatTurn, SavedFields } from "@/lib/api";
+import { draftTitle, NDA_ID, RESUME_GREETING } from "@/lib/document";
+import { useAutosave, useFieldHighlight, usePdfDownload } from "@/lib/hooks";
 import styles from "./Workspace.module.css";
 
 const subscribeNever = () => () => {};
@@ -14,12 +24,41 @@ const subscribeNever = () => () => {};
 type Props = {
   /** The document-picking conversation so far, continued in this document's chat. */
   initialTurns?: ChatTurn[];
+  /** A saved draft being reopened: autosaves continue to it. */
+  saved?: { id: string; fields: SavedFields };
   onChangeDocument: () => void;
 };
 
+const NAME = "Mutual NDA";
+
+/** Restores a saved form over the defaults, so a draft saved before a field existed still loads. */
+function restoreForm(fields: SavedFields): NdaForm {
+  const base = defaultForm();
+  const saved = fields as Partial<NdaForm>;
+  return {
+    ...base,
+    ...saved,
+    party1: { ...base.party1, ...saved.party1 },
+    party2: { ...base.party2, ...saved.party2 },
+  };
+}
+
+const partyName = (p: Party) => p.company.trim() || p.name.trim();
+
 /** The Mutual NDA's bespoke creator: chat + editable form + live preview + PDF. */
-export default function NdaCreator({ initialTurns, onChangeDocument }: Props) {
-  const [form, setForm] = useState(defaultForm);
+export default function NdaCreator({ initialTurns = [], saved, onChangeDocument }: Props) {
+  const [form, setForm] = useState(() => (saved ? restoreForm(saved.fields) : defaultForm()));
+  const [transcript, setTranscript] = useState(initialTurns);
+  // Saves the form as edited -- effectiveDate stays null ("today") until the user picks one.
+  const autosave = useAutosave(
+    {
+      documentId: NDA_ID,
+      title: draftTitle(NAME, [partyName(form.party1), partyName(form.party2)]),
+      transcript,
+      fields: form,
+    },
+    saved?.id,
+  );
   const { highlighted, flash } = useFieldHighlight();
 
   // "today" is only known on the client; the server snapshot is "" so hydration matches
@@ -48,24 +87,13 @@ export default function NdaCreator({ initialTurns, onChangeDocument }: Props) {
 
   return (
     <main className={styles.main}>
-      <header className={styles.header}>
-        <div>
-          <h1>Mutual NDA Creator</h1>
-          <p>Chat with the assistant to fill in the details, or edit any field directly, and watch your agreement update live.</p>
-        </div>
-        <div className={styles.actions}>
-          <button type="button" className={styles.secondary} onClick={onChangeDocument}>
-            Change document
-          </button>
-          <button onClick={download} disabled={busy} aria-busy={busy}>
-            {busy ? "Generating…" : "Download PDF"}
-          </button>
-        </div>
-      </header>
-      <p className={styles.disclaimer}>
-        This tool fills in a standard template agreement (Common Paper Mutual NDA v1.0). It does not provide legal
-        advice — have a qualified attorney review any agreement before you sign it.
-      </p>
+      <WorkspaceHeader
+        title="Mutual NDA Creator"
+        templateName="Mutual NDA v1.0"
+        save={autosave}
+        pdf={{ busy, download }}
+        onChangeDocument={onChangeDocument}
+      />
       {(missing.length > 0 || badChars.length > 0) && (
         <div role="status" className={styles.notice}>
           {missing.length > 0 && (
@@ -88,7 +116,13 @@ export default function NdaCreator({ initialTurns, onChangeDocument }: Props) {
       )}
       <div className={styles.layout}>
         <section className={styles.formCol} aria-label="Agreement details">
-          <NdaChatPanel form={resolved} onApplyPatch={applyPatch} initialTurns={initialTurns} />
+          <NdaChatPanel
+            form={resolved}
+            onApplyPatch={applyPatch}
+            initialTurns={initialTurns}
+            onTurnsChange={setTranscript}
+            greeting={saved ? RESUME_GREETING : undefined}
+          />
           <NdaFieldSummary form={resolved} onChange={setForm} highlightedFields={highlighted} />
         </section>
         <section className={styles.previewCol} aria-label="Agreement preview">
